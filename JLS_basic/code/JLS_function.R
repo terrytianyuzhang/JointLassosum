@@ -50,7 +50,6 @@ wrapperFunction <- function(i.combn, input.df, gwasANC, lambda, shrink, main.dir
   # 5      1 1963738 1:1963738:C:T   C   T
   # 6      1 1964101 1:1964101:A:G   A   G
   
-  
   COR=data.frame(CHR=map$`#CHROM`,ID=map$ID)
   
   # ##> head(COR)
@@ -162,3 +161,17 @@ wrapperFunction <- function(i.combn, input.df, gwasANC, lambda, shrink, main.dir
   save(re.lasso,file=paste(work.dir,"JointLassoSum/JointLassosum-",sprintf("-gamma-%.2f",gamma),".Rdata",sep=""))
   return(i.combn)
 }
+
+JLS_train <- function(large_population_GWAS_file,
+                      small_population_GWAS_file,
+                      large_population_correlation_file,
+                      small_population_correlation_file,
+                      large_population_size,
+                      small_population_size,
+                      JLS_population_weight,
+                      JLS_l1_penalty,
+                      JLS_shrinkage,
+                      chromosome = 1:22){
+  
+}
+
