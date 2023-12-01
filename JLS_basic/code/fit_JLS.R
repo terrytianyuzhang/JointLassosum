@@ -65,6 +65,8 @@ mem.limit <- 2e10
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
 JLS_population_weight_one <- JLS_population_weight[1]
 
+
+
 ####LOAD THE LD BLOCK BOUNDARY INFORMATION
 map_population_type_to_Berisa_label <- function(population_type){
   if(population_type %in% c("CEU", "EUR")){
@@ -131,6 +133,15 @@ JLS_result_by_chr <- mclapply(chromosome,
                               mem.limit = mem.limit,
                               mc.cores = mymc.cores,
                               mc.preschedule = F)
+
+JLS_result_one_weight <- merge.mylassosum(JLS_result_by_chr)
+
+###OUTPUT LOCATION
+JLS_result_one_weight_file <- paste0('/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is', 
+                                     sprintf("%.2f",JLS_population_weight_one), '.Rdata')
+save(JLS_result_one_weight,
+     file=JLS_result_one_weight_file)
+
 # large_population_GWAS_two_chr <- large_population_GWAS[large_population_GWAS$`#CHROM` %in% c(21,22), ]
 # small_population_GWAS_two_chr <- small_population_GWAS[small_population_GWAS$`#CHROM` %in% c(21,22), ]
 # large_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/large_population_GWAS_two_chr'
