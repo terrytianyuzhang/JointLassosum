@@ -31,7 +31,7 @@ JLS_shrinkage <- c(0.9)
 chromosome <- 21:22
 
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
-JLS_population_weight_one <- JLS_population_weight[1]
+# JLS_population_weight_one <- JLS_population_weight[1]
 
 #####BASIC USAGE FOR ONE GIVEN POPULATION WEIGHT PARAMETER, THE OTHER TWO PARAMETERS CAN BE VECTORS
 # JLS_train(JLS_population_weight_one = JLS_population_weight_one,
@@ -62,6 +62,8 @@ mclapply(JLS_population_weight,
          mc.cores = 3, 
          mc.preschedule = F, 
          mc.silent = F)
+
+####NOW THE FITTING RESULTS ARE IN THE SPECIFIED LOCATION
 
 # large_population_GWAS_two_chr <- large_population_GWAS[large_population_GWAS$`#CHROM` %in% c(21,22), ]
 # small_population_GWAS_two_chr <- small_population_GWAS[small_population_GWAS$`#CHROM` %in% c(21,22), ]
