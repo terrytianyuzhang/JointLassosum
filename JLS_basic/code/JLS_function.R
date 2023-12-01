@@ -1,19 +1,48 @@
 
 #### Functions to use
 #Joint Lassosum Function Peng created
-mylassosumFunction <- function(chr,gamma,lambda,shrink,
-                               mem.limit,gwasANC,COR,
-                               referenceFiles,LDblocks){
-  re=mylassosum(cor1=COR[COR$CHR == chr,gwasANC[1]], 
-                cor2=COR[COR$CHR == chr,gwasANC[2]],
-                fileName1 = referenceFiles[[chr]][[gwasANC[1]]], 
-                fileName2 = referenceFiles[[chr]][[gwasANC[2]]],  
-                gamma = gamma, lambda = lambda, shrink=shrink,
-                chunk=TRUE, mem.limit=mem.limit,
-                trace=2,
-                LDblocks1=as.data.frame(LDblocks[[gwasANC[1]]][LDblocks[[gwasANC[1]]]$chr == paste0("chr",chr),]), 
-                LDblocks2=as.data.frame(LDblocks[[gwasANC[2]]][LDblocks[[gwasANC[2]]]$chr == paste0("chr",chr),]))
-  return(re)
+split_chromosome_population_n_send_to_worker <- function(chromosome,
+                                                         JLS_population_weight_one,
+                                                         JLS_l1_penalty,
+                                                         JLS_shrinkage,
+                                                         large_population_type,
+                                                         small_population_type,
+                                                         LD_block_boundary,
+                                                         reference_file,
+                                                         pheno_gene_correlation,
+                                                         mem.limit){
+  
+  pheno_gene_correlation_one_chr_large <- pheno_gene_correlation[pheno_gene_correlation$CHR == chromosome, large_population_type]
+  pheno_gene_correlation_one_chr_small <- pheno_gene_correlation[pheno_gene_correlation$CHR == chromosome, small_population_type]
+  
+  LD_block_boundary_one_chr_large <- LD_block_boundary[[large_population_type]][LD_block_boundary[[large_population_type]]$chr == paste0("chr",chromosome),]
+  LD_block_boundary_one_chr_large <- as.data.frame(LD_block_boundary_one_chr_large)
+  LD_block_boundary_one_chr_small <- LD_block_boundary[[small_population_type]][LD_block_boundary[[small_population_type]]$chr == paste0("chr",chromosome),]
+  LD_block_boundary_one_chr_small <- as.data.frame(LD_block_boundary_one_chr_small)
+  
+  JLS_result_one_chr <- mylassosum(cor1 = pheno_gene_correlation_one_chr_large, 
+                                   cor2 = pheno_gene_correlation_one_chr_small,
+                                   gamma = JLS_population_weight_one, 
+                                   lambda = JLS_l1_penalty, 
+                                   shrink = JLS_shrinkage,
+                                   fileName1 = reference_file[[chromosome]][[large_population_type]], 
+                                   fileName2 = reference_file[[chromosome]][[small_population_type]],
+                                   LDblocks1=LD_block_boundary_one_chr_large, 
+                                   LDblocks2=LD_block_boundary_one_chr_small,
+                                   chunk = TRUE, 
+                                   mem.limit = mem.limit,
+                                   trace=2)
+  # 
+  # re=mylassosum(cor1=COR[COR$CHR == chr,gwasANC[1]], 
+  #               cor2=COR[COR$CHR == chr,gwasANC[2]],
+  #               fileName1 = referenceFiles[[chr]][[gwasANC[1]]], 
+  #               fileName2 = referenceFiles[[chr]][[gwasANC[2]]],  
+  #               gamma = gamma, lambda = lambda, shrink=shrink,
+  #               chunk=TRUE, mem.limit=mem.limit,
+  #               trace=2,
+  #               LDblocks1=as.data.frame(LDblocks[[gwasANC[1]]][LDblocks[[gwasANC[1]]]$chr == paste0("chr",chr),]), 
+  #               LDblocks2=as.data.frame(LDblocks[[gwasANC[2]]][LDblocks[[gwasANC[2]]]$chr == paste0("chr",chr),]))
+  return(JLS_result_one_chr)
 }
 
 wrapperFunction <- function(i.combn, input.df, gwasANC, lambda, shrink, main.dir, work.dir, CHR=1:22, 
@@ -136,7 +165,7 @@ wrapperFunction <- function(i.combn, input.df, gwasANC, lambda, shrink, main.dir
   print(CHR); flush.console()
   
   system.time(
-    re.chr<-mclapply(CHR, mylassosumFunction,
+    re.chr<-mclapply(CHR, split_chromosome_population_n_send_to_worker,
                      gamma=gamma,lambda=lambda,
                      shrink=shrink,mem.limit = mem.limit,
                      gwasANC = gwasANC,COR=COR,
@@ -162,16 +191,16 @@ wrapperFunction <- function(i.combn, input.df, gwasANC, lambda, shrink, main.dir
   return(i.combn)
 }
 
-JLS_train <- function(large_population_GWAS_file,
-                      small_population_GWAS_file,
-                      large_population_correlation_file,
-                      small_population_correlation_file,
-                      large_population_size,
-                      small_population_size,
-                      JLS_population_weight,
-                      JLS_l1_penalty,
-                      JLS_shrinkage,
-                      chromosome = 1:22){
-  
-}
+# JLS_train <- function(large_population_GWAS_file,
+#                       small_population_GWAS_file,
+#                       large_population_correlation_file,
+#                       small_population_correlation_file,
+#                       large_population_size,
+#                       small_population_size,
+#                       JLS_population_weight,
+#                       JLS_l1_penalty,
+#                       JLS_shrinkage,
+#                       chromosome = 1:22){
+#   
+# }
 

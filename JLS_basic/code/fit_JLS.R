@@ -37,10 +37,15 @@ source('JLS_function.R')
 # large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
 # small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
 
-large_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/large_population_GWAS_two_chr'
-small_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/small_population_GWAS_two_chr'
-large_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/CEU-chr'
-small_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/YRI-chr'
+large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_GWAS_two_chr'
+small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
+large_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr'
+small_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr'
+
+# large_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/large_population_GWAS_two_chr'
+# small_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/small_population_GWAS_two_chr'
+# large_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/CEU-chr'
+# small_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/YRI-chr'
 # gene_ID_chromosome_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN/CEU.TRN.pvar'
 
 
@@ -50,10 +55,12 @@ small_population_type <- 'YRI'
 # small_population_type <- 'ASN'
 
 ###HYPERPARAMETER CANDIDATES
-JLS_population_weight <- c(0.3, 0.5, 0.8)
-JLS_l1_penalty <- exp(seq(log(0.007), log(0.05), length.out=5))
+JLS_population_weight <- c(0.5, 0.8)
+# JLS_l1_penalty <- exp(seq(log(0.007), log(0.05), length.out=5))
+JLS_l1_penalty <- exp(seq(log(0.1), log(0.05), length.out = 2))
 JLS_shrinkage <- c(0.75)
-chromosome <- 1:22
+chromosome <- 21:22
+mem.limit <- 2e10
 
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
 JLS_population_weight_one <- JLS_population_weight[1]
@@ -108,14 +115,28 @@ pheno_gene_correlation[,small_population_type] <- p2cor(p = small_population_GWA
                                                         n = small_population_size, 
                                                         sign=log(small_population_GWAS$OR))
 rownames(pheno_gene_correlation) <- pheno_gene_correlation$ID
-print('-----now loading the GWAS results, finished-----')
+print('-----finished-----')
 
-large_population_GWAS_two_chr <- large_population_GWAS[large_population_GWAS$`#CHROM` %in% c(21,22), ]
-small_population_GWAS_two_chr <- small_population_GWAS[small_population_GWAS$`#CHROM` %in% c(21,22), ]
-large_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/large_population_GWAS_two_chr'
-small_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/small_population_GWAS_two_chr'
-fwrite(large_population_GWAS_two_chr, file = large_population_GWAS_two_chr_file)
-fwrite(small_population_GWAS_two_chr, file = small_population_GWAS_two_chr_file)
+######NOW START MODEL FITTING
+JLS_result_by_chr <- mclapply(chromosome,
+                              FUN = split_chromosome_population_n_send_to_worker,
+                              JLS_population_weight_one = JLS_population_weight_one,
+                              JLS_l1_penalty = JLS_l1_penalty,
+                              JLS_shrinkage = JLS_shrinkage,
+                              large_population_type = large_population_type,
+                              small_population_type = small_population_type,
+                              LD_block_boundary = LD_block_boundary,
+                              reference_file = reference_file,
+                              pheno_gene_correlation = pheno_gene_correlation,
+                              mem.limit = mem.limit,
+                              mc.cores = mymc.cores,
+                              mc.preschedule = F)
+# large_population_GWAS_two_chr <- large_population_GWAS[large_population_GWAS$`#CHROM` %in% c(21,22), ]
+# small_population_GWAS_two_chr <- small_population_GWAS[small_population_GWAS$`#CHROM` %in% c(21,22), ]
+# large_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/large_population_GWAS_two_chr'
+# small_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/small_population_GWAS_two_chr'
+# fwrite(large_population_GWAS_two_chr, file = large_population_GWAS_two_chr_file)
+# fwrite(small_population_GWAS_two_chr, file = small_population_GWAS_two_chr_file)
 
 
 ###PARALLEL
