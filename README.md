@@ -14,7 +14,7 @@ If you use the Joint-Lassosum method or code for your research, please cite our 
 
 ## Usage
 
-New users may start with [`fit_JLS.R`]/JLS_basic/code/fit_JLS.R) - Given GWAS information and reference population genotype (for calculating gene-gene correlation), it fits Joint-Lassosum. Please make sure your data is in the same format as those in (https://github.com/terrytianyuzhang/JointLassosum/tree/main/JLS_basic/data)
+New users may start with [`fit_JLS.R`](/JLS_basic/code/fit_JLS.R) - Given GWAS information and reference population genotype (for calculating gene-gene correlation), it fits Joint-Lassosum. Please make sure your data is in the same format as those in (https://github.com/terrytianyuzhang/JointLassosum/tree/main/JLS_basic/data)
 
 
 
