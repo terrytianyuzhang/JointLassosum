@@ -1,147 +1,67 @@
 gc()
-options(stringsAsFactors = F)
-
-if(!exists("i.sim")){
-  i.sim <- 609
-}
-
-#### load the functions that are needed
-# source("simulation-functions.R")
-# source("general_pipeline_parameters.R")
-source("Lassosum_function/parseselect.R")
-source("Lassosum_function/parseblocks.R")
-source("Lassosum_function/ncol.bfile.R")
-source("Lassosum_function/nrow.bfile.R")
-source("Lassosum_function/read.table2.R")
-source("Lassosum_function/selectregion.R")
-source("Lassosum_function/parse.pheno.covar.R")
-source("Lassosum_function/myelnet.R")
-source("Lassosum_function/mylassosum.R")
-source("Lassosum_function/splitgenome.R")
-source("Lassosum_function/validation.R")
-source("Lassosum_function/merge.mylassosum.R")
-Rcpp::sourceCpp("Lassosum_function/myfunctions.cpp")
 
 library(data.table)
-library(pryr) # check memory useage
 library(lassosum) #transform p value to correlation
 library(doParallel) # foreach
-library(pROC) # for AUC 
 library(R.utils)
+# library(pROC) # for AUC 
+# library(pryr) # check memory useage
 
 source('JLS_function.R')
+source('JLS_function_supp.R')
+Rcpp::sourceCpp("JLS_function.cpp")
 
-###INPUT FILE LOCATION
-# large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
-# small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
-# large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
-# small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
-
+### FILE LOCATION
 large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_GWAS_two_chr'
 small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
 large_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr'
 small_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr'
 
-# large_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/large_population_GWAS_two_chr'
-# small_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/small_population_GWAS_two_chr'
-# large_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/CEU-chr'
-# small_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/YRI-chr'
-# gene_ID_chromosome_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN/CEU.TRN.pvar'
-
-
+JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is'
 ###OTHER METADATA
 large_population_type <- 'CEU'
 small_population_type <- 'YRI'
 # small_population_type <- 'ASN'
 
 ###HYPERPARAMETER CANDIDATES
-JLS_population_weight <- c(0.5, 0.8)
+JLS_population_weight <- c(0, 0.5, 1)
 # JLS_l1_penalty <- exp(seq(log(0.007), log(0.05), length.out=5))
 JLS_l1_penalty <- exp(seq(log(0.01), log(0.005), length.out = 2))
-JLS_shrinkage <- c(0.75)
+JLS_shrinkage <- c(0.9)
 chromosome <- 21:22
-mem.limit <- 2*10e9
-mymc.cores <- 8
 
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
-JLS_population_weight_one <- JLS_population_weight[2]
+JLS_population_weight_one <- JLS_population_weight[1]
 
+#####BASIC USAGE FOR ONE GIVEN POPULATION WEIGHT PARAMETER, THE OTHER TWO PARAMETERS CAN BE VECTORS
+# JLS_train(JLS_population_weight_one = JLS_population_weight_one,
+#           JLS_l1_penalty = JLS_l1_penalty,
+#           JLS_shrinkage = JLS_shrinkage,
+#           large_population_GWAS_file = large_population_GWAS_file,
+#           small_population_GWAS_file = small_population_GWAS_file,
+#           large_population_reference_prefix = large_population_reference_prefix,
+#           small_population_reference_prefix = small_population_reference_prefix,
+#           JLS_result_prefix = JLS_result_prefix,
+#           large_population_type = large_population_type,
+#           small_population_type = small_population_type,
+#           chromosome = chromosome)
 
-
-####LOAD THE LD BLOCK BOUNDARY INFORMATION
-map_population_type_to_Berisa_label <- function(population_type){
-  if(population_type %in% c("CEU", "EUR")){
-    Berisa_label <- "EUR"
-  }else if(population_type %in% c("YRI", "AFR")){
-    Berisa_label <- "AFR"
-  }else{
-    print(paste0('I cannot find a Berisa label for ', population_type))
-  }
-  return(Berisa_label)
-}
-
-LD_block_boundary <- list()
-large_population_LD_file <- paste0("data/Berisa.", 
-                                   map_population_type_to_Berisa_label(large_population_type), ".hg38.bed")
-LD_block_boundary[[large_population_type]] <- read.table2(system.file(large_population_LD_file, 
-                                                                      package="lassosum"), 
-                                                          header=T)
-small_population_LD_file <- paste0("data/Berisa.", 
-                                   map_population_type_to_Berisa_label(small_population_type), ".hg38.bed")
-LD_block_boundary[[small_population_type]] <- read.table2(system.file(small_population_LD_file, 
-                                                                      package="lassosum"), 
-                                                          header=T)
-
-###NOW WE ARRANGE THE REFERENCE PANEL FILE NAMES FOR PARALLELIZATION (OVER THE CHROMOSOMES)
-reference_file <- list()
-for(chromosome_one in chromosome){
-  reference_file[[chromosome_one]] <- list()
-  reference_file[[chromosome_one]][[large_population_type]] <- paste0(large_population_reference_prefix, chromosome_one)
-  reference_file[[chromosome_one]][[small_population_type]] <- paste0(small_population_reference_prefix, chromosome_one)
-}
-
-
-####LOAD THE GWAS RESULTS AND TRANSLATE THEM INTO CORRELATION INFORMATION
-print('-----now loading the GWAS results-----')
-# gene_ID_chromosome <- fread(gene_ID_chromosome_file, header=T, data.table=F)
-large_population_GWAS <-  fread(large_population_GWAS_file, header = T, data.table = F)
-large_population_size <- as.numeric(large_population_GWAS$OBS_CT[1])
-pheno_gene_correlation <- data.frame(CHR = large_population_GWAS$`#CHROM`,
-                                     ID = large_population_GWAS$ID)
-pheno_gene_correlation[,large_population_type] <- p2cor(p = large_population_GWAS$P, 
-                                                        n = large_population_size, 
-                                                        sign=log(large_population_GWAS$OR))
-
-small_population_GWAS <-  fread(small_population_GWAS_file, header = T, data.table = F)
-small_population_size <- as.numeric(small_population_GWAS$OBS_CT[1])
-pheno_gene_correlation[,small_population_type] <- p2cor(p = small_population_GWAS$P, 
-                                                        n = small_population_size, 
-                                                        sign=log(small_population_GWAS$OR))
-rownames(pheno_gene_correlation) <- pheno_gene_correlation$ID
-print('-----finished-----')
-
-######NOW START MODEL FITTING
-JLS_result_by_chr <- mclapply(chromosome,
-                              FUN = split_chromosome_population_n_send_to_worker,
-                              JLS_population_weight_one = JLS_population_weight_one,
-                              JLS_l1_penalty = JLS_l1_penalty,
-                              JLS_shrinkage = JLS_shrinkage,
-                              large_population_type = large_population_type,
-                              small_population_type = small_population_type,
-                              LD_block_boundary = LD_block_boundary,
-                              reference_file = reference_file,
-                              pheno_gene_correlation = pheno_gene_correlation,
-                              mem.limit = mem.limit,
-                              mc.cores = mymc.cores,
-                              mc.preschedule = F)
-
-JLS_result_one_weight <- merge.mylassosum(JLS_result_by_chr)
-
-###OUTPUT LOCATION
-JLS_result_one_weight_file <- paste0('/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is', 
-                                     sprintf("%.2f",JLS_population_weight_one), '.Rdata')
-save(JLS_result_one_weight,
-     file=JLS_result_one_weight_file)
+##PARALLEL OVER DIFFERENT WEIGHT PARAMETER GAMMA
+mclapply(JLS_population_weight,
+         FUN = JLS_train,
+         JLS_l1_penalty = JLS_l1_penalty,
+         JLS_shrinkage = JLS_shrinkage,
+         large_population_GWAS_file = large_population_GWAS_file,
+         small_population_GWAS_file = small_population_GWAS_file,
+         large_population_reference_prefix = large_population_reference_prefix,
+         small_population_reference_prefix = small_population_reference_prefix,
+         JLS_result_prefix = JLS_result_prefix,
+         large_population_type = large_population_type,
+         small_population_type = small_population_type,
+         chromosome = chromosome,
+         mc.cores = 3, 
+         mc.preschedule = F, 
+         mc.silent = F)
 
 # large_population_GWAS_two_chr <- large_population_GWAS[large_population_GWAS$`#CHROM` %in% c(21,22), ]
 # small_population_GWAS_two_chr <- small_population_GWAS[small_population_GWAS$`#CHROM` %in% c(21,22), ]
@@ -151,12 +71,28 @@ save(JLS_result_one_weight,
 # fwrite(small_population_GWAS_two_chr, file = small_population_GWAS_two_chr_file)
 
 
-###PARALLEL
+#
 
-system.time(re.wrapper<-mclapply(1:nrow(input.df),wrapperFunction,input.df=input.df,
-                                 gwasANC = gwasANC, lambda=lambda, shrink=shrink,
-                                 main.dir=main.dir,work.dir=work.dir,CHR= 1:22, mem.limit=2e10,
-                                 mc.cores=3, mc.preschedule = F, mc.silent=F))
+# source("Lassosum_function/parseselect.R")
+# source("Lassosum_function/parseblocks.R")
+# source("Lassosum_function/ncol.bfile.R")
+# source("Lassosum_function/nrow.bfile.R")
+# source("Lassosum_function/read.table2.R")
+# source("Lassosum_function/selectregion.R")
+# source("Lassosum_function/parse.pheno.covar.R")
+# source("Lassosum_function/splitgenome.R")
+# source("Lassosum_function/validation.R")
+# source("Lassosum_function/merge.mylassosum.R")
+
+# large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
+# small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
+# large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
+# small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
 
 
+# large_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/large_population_GWAS_two_chr'
+# small_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/small_population_GWAS_two_chr'
+# large_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/CEU-chr'
+# small_population_reference_prefix <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/YRI-chr'
+# gene_ID_chromosome_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN/CEU.TRN.pvar'
 
