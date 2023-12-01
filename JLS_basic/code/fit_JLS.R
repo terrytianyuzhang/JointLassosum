@@ -8,19 +8,19 @@ if(!exists("i.sim")){
 #### load the functions that are needed
 # source("simulation-functions.R")
 # source("general_pipeline_parameters.R")
-source("LassosumFunctions/parseselect.R")
-source("LassosumFunctions/parseblocks.R")
-source("LassosumFunctions/ncol.bfile.R")
-source("LassosumFunctions/nrow.bfile.R")
-source("LassosumFunctions/read.table2.R")
-source("LassosumFunctions/selectregion.R")
-source("LassosumFunctions/parse.pheno.covar.R")
-source("LassosumFunctions/myelnet.R")
-source("LassosumFunctions/mylassosum.R")
-source("LassosumFunctions/splitgenome.R")
-source("LassosumFunctions/validation.R")
-source("LassosumFunctions/merge.mylassosum.R")
-Rcpp::sourceCpp("LassosumFunctions/myfunctions.cpp")
+source("Lassosum_function/parseselect.R")
+source("Lassosum_function/parseblocks.R")
+source("Lassosum_function/ncol.bfile.R")
+source("Lassosum_function/nrow.bfile.R")
+source("Lassosum_function/read.table2.R")
+source("Lassosum_function/selectregion.R")
+source("Lassosum_function/parse.pheno.covar.R")
+source("Lassosum_function/myelnet.R")
+source("Lassosum_function/mylassosum.R")
+source("Lassosum_function/splitgenome.R")
+source("Lassosum_function/validation.R")
+source("Lassosum_function/merge.mylassosum.R")
+Rcpp::sourceCpp("Lassosum_function/myfunctions.cpp")
 
 library(data.table)
 library(pryr) # check memory useage
@@ -32,16 +32,22 @@ library(R.utils)
 source('JLS_function.R')
 
 ###INPUT FILE LOCATION
-large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
-small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
+# large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
+# small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
 large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
 small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
 
+large_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/large_population_GWAS_two_chr'
+small_population_GWAS_file <- '/Users/tianyuzhang/Documents/GitHub/JointLassosum/JLS_basic/data/small_population_GWAS_two_chr'
+large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
+small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
+# gene_ID_chromosome_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN/CEU.TRN.pvar'
+
+
 ###OTHER METADATA
-large_population_size <- 2e4
-small_population_size <- 5e3
 large_population_type <- 'CEU'
 small_population_type <- 'YRI'
+# small_population_type <- 'ASN'
 
 ###HYPERPARAMETER CANDIDATES
 JLS_population_weight <- c(0.3, 0.5, 0.8)
@@ -51,24 +57,6 @@ chromosome <- 1:22
 
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
 JLS_population_weight_one <- JLS_population_weight[1]
-
-####LOAD THE GWAS RESULTS AND TRANSLATE THEM INTO CORRELATION INFORMATION
-print('-----now loading the GWAS results-----')
-map <- fread(paste0(work.dir, 'TST/', anc, '.TST.pvar'), header=T, data.table=F)
-pheno_gene_correlation <- data.frame(CHR = map$`#CHROM`,ID = map$ID)
-
-large_population_GWAS <-  fread(large_population_GWAS_file, header = T, data.table = F)
-pheno_gene_correlation[,large_population_type] <- p2cor(p = large_population_GWAS$P, 
-                                                        n = large_population_size, 
-                                                        sign=log(large_population_GWAS$OR))
-
-small_population_GWAS <-  fread(small_population_GWAS_file, header = T, data.table = F)
-pheno_gene_correlation[,small_population_type] <- p2cor(p = small_population_GWAS$P, 
-                                                        n = small_population_size, 
-                                                        sign=log(small_population_GWAS$OR))
-rownames(pheno_gene_correlation) <- pheno_gene_correlation$ID
-print('-----now loading the GWAS results, finished-----')
-
 
 ####LOAD THE LD BLOCK BOUNDARY INFORMATION
 map_population_type_to_Berisa_label <- function(population_type){
@@ -101,7 +89,35 @@ for(chromosome_one in chromosome){
   reference_file[[chromosome_one]][[large_population_type]] <- paste0(large_population_reference_prefix, chromosome_one)
   reference_file[[chromosome_one]][[small_population_type]] <- paste0(small_population_reference_prefix, chromosome_one)
 }
-flush.console()
+
+
+####LOAD THE GWAS RESULTS AND TRANSLATE THEM INTO CORRELATION INFORMATION
+print('-----now loading the GWAS results-----')
+# gene_ID_chromosome <- fread(gene_ID_chromosome_file, header=T, data.table=F)
+large_population_GWAS <-  fread(large_population_GWAS_file, header = T, data.table = F)
+large_population_size <- as.numeric(large_population_GWAS$OBS_CT[1])
+pheno_gene_correlation <- data.frame(CHR = large_population_GWAS$`#CHROM`,
+                                     ID = large_population_GWAS$ID)
+pheno_gene_correlation[,large_population_type] <- p2cor(p = large_population_GWAS$P, 
+                                                        n = large_population_size, 
+                                                        sign=log(large_population_GWAS$OR))
+
+small_population_GWAS <-  fread(small_population_GWAS_file, header = T, data.table = F)
+small_population_size <- as.numeric(small_population_GWAS$OBS_CT[1])
+pheno_gene_correlation[,small_population_type] <- p2cor(p = small_population_GWAS$P, 
+                                                        n = small_population_size, 
+                                                        sign=log(small_population_GWAS$OR))
+rownames(pheno_gene_correlation) <- pheno_gene_correlation$ID
+print('-----now loading the GWAS results, finished-----')
+
+large_population_GWAS_two_chr <- large_population_GWAS[large_population_GWAS$`#CHROM` %in% c(21,22), ]
+small_population_GWAS_two_chr <- small_population_GWAS[small_population_GWAS$`#CHROM` %in% c(21,22), ]
+large_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/large_population_GWAS_two_chr'
+small_population_GWAS_two_chr_file <- '/raid6/Tianyu/PRS/sharable/small_population_GWAS_two_chr'
+fwrite(large_population_GWAS_two_chr, file = large_population_GWAS_two_chr_file)
+fwrite(small_population_GWAS_two_chr, file = small_population_GWAS_two_chr_file)
+
+
 ###PARALLEL
 
 
