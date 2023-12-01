@@ -19,16 +19,16 @@ small_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr'
 
 JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is'
 ###OTHER METADATA
-large_population_type <- 'CEU'
-small_population_type <- 'YRI'
+large_population_type <- 'CEU' #or EUR, for determining LD block boundaries
+small_population_type <- 'YRI' #or AFR
 # small_population_type <- 'ASN'
 
 ###HYPERPARAMETER CANDIDATES
-JLS_population_weight <- c(0, 0.5, 1)
+JLS_population_weight <- c(0, 0.5, 1) #gamma parameter in the paper
 # JLS_l1_penalty <- exp(seq(log(0.007), log(0.05), length.out=5))
-JLS_l1_penalty <- exp(seq(log(0.01), log(0.005), length.out = 2))
-JLS_shrinkage <- c(0.9)
-chromosome <- 21:22
+JLS_l1_penalty <- exp(seq(log(0.01), log(0.005), length.out = 2)) ##lambda
+JLS_shrinkage <- c(0.9) #s
+chromosome <- 21:22 ###usually you need to change this to 1:22 
 
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
 # JLS_population_weight_one <- JLS_population_weight[1]
