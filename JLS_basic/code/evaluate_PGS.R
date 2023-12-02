@@ -33,8 +33,11 @@ JLS_result_one_weight_file <- paste0(JLS_result_prefix,
 
 JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
 
+####NOW WE HAVE ALL THE COEFFICIENTS (BETA) FOR ONE WEIGHT (GAMMA)
+####EACH OF THE COEFFICIENT VECTOR CORRESPONDS TO ONE L1 PENALTY (LAMBDA)
 for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
-  # column_name_of_coefficient <- paste0('l1_para_is_',JLS_result_one_weight$lambda[l1_penalty_index])
+  
+  ####WE NEED TO STORE THE BETA IN CERTAIN FORMAT TO LEVERAGE THE FAST PLINK SOFTWARE FOR PGS EVALUATION
   effect_size_df <- data.frame(SNP = JLS_regression_coefficient$ID, 
                                A1 = unlist(lapply(strsplit(JLS_regression_coefficient$ID, ":"),`[[`,4)),
                                BETA = JLS_regression_coefficient[, ..l1_penalty_index])
@@ -45,11 +48,13 @@ for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
                                       sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_coefficient.txt')
   write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
   
+  ####PLACE TO STORE THE PGS RESULTS
   PGS_file <- paste0(JLS_result_prefix, 
                      sprintf("%.2f",JLS_population_weight_one),
                      '_l1_penalty_is_',
                      sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS')
   
+  ###NOW THE REAL WORK IS HAPPENING
   plink2.command = paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
                          "--bfile", small_population_reference_prefix_merged ,
                          "--score", selected_coefficient_file, "header-read",1,2,
@@ -59,3 +64,5 @@ for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
   
   system(plink2.command)
 }
+
+####THERE SHOULD BE A FURTHER FOR LOOP FOR JLS_population_weight_one, FOR SIMPLICITY I OMIT IT IN THE EXAMPLE CODE.
