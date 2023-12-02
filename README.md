@@ -16,6 +16,8 @@ If you use the Joint-Lassosum method or code for your research, please cite our 
 
 New users may start with [`fit_JLS.R`](/JLS_basic/code/fit_JLS.R) - Given GWAS information and reference population genotype (for calculating gene-gene correlation), it fits Joint-Lassosum. Please make sure your data is in the same format as our [toy example](/JLS_basic/data/).
 
+After fitting the JLS models, essentially calculating the high-dimensional Lasso-type regression coefficients, we can use [`evaluate_PGS.R`](/JLS_basic/code/evaluate_PGS.R) to predict the PGS of individuals given their genotype. We present the data management steps for the ease of use.
+
 
 
 
