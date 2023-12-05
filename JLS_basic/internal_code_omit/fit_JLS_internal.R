@@ -12,23 +12,29 @@ source('JLS_function_supp.R')
 Rcpp::sourceCpp("JLS_function.cpp")
 
 ### FILE LOCATION
-large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_GWAS_two_chr'
-small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
-large_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr'
-small_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr'
+# large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_GWAS_two_chr'
+# small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
+# large_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr'
+# small_population_reference_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr'
 
-JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is'
+large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
+small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
+large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
+small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
+
+# JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is'
+JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result_internal/JLS_result_weight_is'
 ###OTHER METADATA
 large_population_type <- 'CEU' #or EUR, for determining LD block boundaries
 small_population_type <- 'YRI' #or AFR
 # small_population_type <- 'ASN'
 
 ###HYPERPARAMETER CANDIDATES
-JLS_population_weight <- c(0, 0.5, 1) #gamma parameter in the paper
+JLS_population_weight <- c(0.2, 0.5, 0.8) #gamma parameter in the paper
 # JLS_l1_penalty <- exp(seq(log(0.007), log(0.05), length.out=5))
-JLS_l1_penalty <- exp(seq(log(0.01), log(0.005), length.out = 2)) ##lambda
+JLS_l1_penalty <- exp(seq(log(0.01), log(0.05), length.out = 5)) ##lambda
 JLS_shrinkage <- c(0.9) #s
-chromosome <- 21:22 ###usually you need to change this to 1:22 
+chromosome <- 1:22 ###usually you need to change this to 1:22 
 
 ###GIVEN THE ABOVE INFORMATION, FIT THE MODEL FOR ONE TIME
 # JLS_population_weight_one <- JLS_population_weight[1]
@@ -59,8 +65,7 @@ mclapply(JLS_population_weight,
          large_population_type = large_population_type,
          small_population_type = small_population_type,
          chromosome = chromosome,
-         num_parallel_chr = 1,
-         mc.cores = 1, 
+         mc.cores = 3, 
          mc.preschedule = F, 
          mc.silent = F)
 
