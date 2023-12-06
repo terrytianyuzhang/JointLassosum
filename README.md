@@ -20,9 +20,9 @@ After fitting the JLS models, essentially calculating the high-dimensional Lasso
 
 ## About Reference Panel/Population
 
-(Joint-)Lassosum type algorithms leverage the SNP correlation information of different populations. In addition to the GWAS summary statistics, JLS also requires the users to supply a set of plink files (containing individual genotype information) to calculate the correlation between SNPs within each LD block. In our toy example, they are the files starting with "CEU-" and "YRI-" in the [data folder](/JLS_basic/data/). Note we split the whole genome information into chromosome chunks to facilitate parallelization. 
+(Joint-)Lassosum-type algorithms leverage the SNP correlation information of different populations. In addition to the GWAS summary statistics, JLS also requires the users to supply a set of plink files (containing individual genotype information) to calculate the correlation between SNPs within each LD block. In our toy example, they are the files starting with "CEU-" and "YRI-" in the [data folder](/JLS_basic/data/). Note we split the whole genome information into chromosome chunks to facilitate parallelization. 
 
-The individuals do not need to be those involved in the GWAS study---we even allow them to be simulated synthetic "individuals" so long as the SNP information is preserved. We suggest the users download the original data from 1000 Genomes Project in their cluster computer and sequentially run our [simualtion pipeline](/Generate_reference_populaton/) to generate "synthetic" individual in the required format. 
+The individuals do not need to be those involved in the GWAS study---we even allow them to be simulated synthetic "individuals" so long as the SNP information is preserved. We suggest the users download the original data from 1000 Genomes Project in their cluster computer and sequentially run our [simualtion pipeline](/Generate_reference_populaton/) to generate a "synthetic" individual in the required format. 
 
 
 
