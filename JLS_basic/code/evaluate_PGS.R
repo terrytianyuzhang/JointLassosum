@@ -13,6 +13,7 @@ JLS_population_weight_one <- JLS_population_weight[2]
 
 JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is'
 small_population_reference_prefix_merged <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr21n22'
+
 ###I USE THE FOLLOWING LINES TO MERGE THE CHR21 CHR22 PLINK FILES TOGETHER
 # small_population_reference_prefix_21 <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr21'
 # small_population_reference_prefix_22 <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr22'
@@ -66,3 +67,25 @@ for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
 }
 
 ####THERE SHOULD BE A FURTHER FOR LOOP FOR JLS_population_weight_one, FOR SIMPLICITY I OMIT IT IN THE EXAMPLE CODE.
+
+
+####I ALSO INCLUDE THE CODE FOR CALCULATING THE AUC FROM PREDICTION PGS SCORE
+####THIS IS NOT WORKING FOR OUR TOY EXAMPLE BECAUSE THERE IS NO PHENOTYPE LABEL.
+# AUC_result_file <- '/raid6/Tianyu/PRS/sharable/data/prediction_AUC.txt'
+# JLS_AUC <- data.frame()
+# ####EACH OF THE COEFFICIENT VECTOR CORRESPONDS TO ONE L1 PENALTY (LAMBDA)
+# for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
+#   
+#   ####PLACE TO STORE THE PGS RESULTS
+#   PGS_file <- paste0(JLS_result_prefix, 
+#                      sprintf("%.2f",JLS_population_weight_one),
+#                      '_l1_penalty_is_',
+#                      sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS.sscore')
+#   PGS <- data.frame(fread(PGS_file))
+#   current_AUC <- auc(PGS$PHENO1, PGS[,ncol(PGS)])
+#   JLS_AUC <- rbind(JLS_AUC,
+#                    data.frame(JLS_population_weight = JLS_population_weight_one,
+#                               JLS_l1_penalty = JLS_result_one_weight$lambda[l1_penalty_index],
+#                               AUC = current_AUC))
+# }
+# write.table(JLS_AUC, file = AUC_result_file)

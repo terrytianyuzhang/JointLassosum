@@ -6,13 +6,14 @@ library(data.table)
 library(lassosum) #transform p value to correlation
 library(doParallel) # foreach
 library(R.utils)
-# library(pROC) # for AUC 
+library(pROC) # for AUC
 # library(pryr) # check memory useage
 JLS_population_weight <- c(0.2, 0.5, 0.8) #gamma parameter in the paper
 # JLS_population_weight_one <- JLS_population_weight[2]
 JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result_internal/JLS_result_weight_is'
 genotype_plink2_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TUNE/YRI.TUNE'
 genotype_plink_file <- '/raid6/Tianyu/PRS/sharable/data_internal/YRI.TUNE'
+AUC_result_file <- '/raid6/Tianyu/PRS/sharable/result_internal/JLS_result_AUC.Rdata'
 for(JLS_population_weight_index in 1:length(JLS_population_weight)){
   JLS_population_weight_one <- JLS_population_weight[JLS_population_weight_index]
   
@@ -59,6 +60,32 @@ for(JLS_population_weight_index in 1:length(JLS_population_weight)){
   }
 }
 
+###NOW CALCULATE AUC RESULTS FOR THE TESTING SAMPLE FOR EACH HYPERPARAMETER
+JLS_AUC <- data.frame()
+for(JLS_population_weight_index in 1:length(JLS_population_weight)){
+  JLS_population_weight_one <- JLS_population_weight[JLS_population_weight_index]
+  
+  JLS_result_one_weight_file <- paste0(JLS_result_prefix, 
+                                       sprintf("%.2f",JLS_population_weight_one), '.Rdata')
+  
+  JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
+  ####EACH OF THE COEFFICIENT VECTOR CORRESPONDS TO ONE L1 PENALTY (LAMBDA)
+  for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
+    
+    ####PLACE TO STORE THE PGS RESULTS
+    PGS_file <- paste0(JLS_result_prefix, 
+                       sprintf("%.2f",JLS_population_weight_one),
+                       '_l1_penalty_is_',
+                       sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS.sscore')
+    PGS <- data.frame(fread(PGS_file))
+    current_AUC <- auc(PGS$PHENO1, PGS[,ncol(PGS)])
+    JLS_AUC <- rbind(JLS_AUC,
+                     data.frame(JLS_population_weight = JLS_population_weight_one,
+                                JLS_l1_penalty = JLS_result_one_weight$lambda[l1_penalty_index],
+                                AUC = current_AUC))
+  }
+}
+save(JLS_AUC, file = AUC_result_file)
 
 
 
