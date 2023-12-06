@@ -1,6 +1,6 @@
 # Joint-Lassosum 
 
-Source code for Polygenic Risk Score methods Joint-Lassosum.
+Welcome! Here we have source code for PolyGenic risk Score method Joint-Lassosum.
 
 ## Overview
 
