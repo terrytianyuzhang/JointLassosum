@@ -59,8 +59,8 @@ mclapply(JLS_population_weight,
          large_population_type = large_population_type,
          small_population_type = small_population_type,
          chromosome = chromosome,
-         num_parallel_chr = 1,
-         mc.cores = 1, 
+         num_parallel_chr = 1, ###change this to a larger number for palatalization over chromosomes.
+         mc.cores = 1, ###change this to a larger number for palatalization over weight parameters.
          mc.preschedule = F, 
          mc.silent = F)
 
