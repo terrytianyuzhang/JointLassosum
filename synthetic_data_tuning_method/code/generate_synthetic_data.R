@@ -1,23 +1,72 @@
 ###########generate boostrap samples and split them into training and validation######
-
 gc()
-options(stringsAsFactors = F)
-
-if(!exists("i.sim")){
-  i.sim <- 600
-}
 
 library(data.table)
 library(pryr) # check memory useage
 library(lassosum) #transform p value to correlation
 library(doParallel) # foreach
-library(pROC) # for AUC 
 library(R.utils)
 library(snpStats)
 library(wordspace)
 library(foreach)
+
 #####
-source("HyperparameterTuningFunctions.R")
+source("generate_synthetic_data_function.R")
+
+JLS_population_weight_one <- 0.5 ###THIS NEED TO BE ONE OF THE CANDIDATE "GAMMA"
+JLS_l1_penalty_one <- 0.005###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
+
+##the result of one JLS fit is the input of this pipeline
+JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/input/'
+para_tuning_result_prefix <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/result/'
+
+
+JLS_regression_coefficient_file <- paste0(JLS_result_prefix, 
+                                          sprintf("%.2f",JLS_population_weight_one), '_coefficient.txt')
+JLS_regression_coefficient <- fread(JLS_regression_coefficient_file)
+
+
+JLS_result_one_weight_file <- paste0(JLS_result_prefix, 
+                                     sprintf("%.2f",JLS_population_weight_one), '.Rdata')
+JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
+
+l1_penalty_index <- which(JLS_result_one_weight$lambda == JLS_l1_penalty_one)
+effect_size_df <- data.frame(SNP = JLS_regression_coefficient$ID, 
+                             A1 = unlist(lapply(strsplit(JLS_regression_coefficient$ID, ":"),`[[`,4)),
+                             BETA = JLS_regression_coefficient[, ..l1_penalty_index])
+
+selected_coefficient_file <- paste0(para_tuning_result_prefix, 
+                                    sprintf("%.2f",JLS_population_weight_one),
+                                    '_l1_penalty_is_',
+                                    sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_coefficient.txt')
+write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
+
+####PLACE TO STORE THE PGS RESULTS
+PGS_file <- paste0(para_tuning_result_prefix, 
+                   sprintf("%.2f",JLS_population_weight_one),
+                   '_l1_penalty_is_',
+                   sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS')
+
+###NOW THE REAL WORK IS HAPPENING
+plink2.command <- paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
+                       "--bfile", small_population_reference_prefix_merged ,
+                       "--score", selected_coefficient_file, "header-read",1,2,
+                       "--score-col-nums",3,
+                       "--out",PGS_file,
+                       sep=" ")
+
+system(plink2.command)
+
+####NOW WE HAVE ALL THE COEFFICIENTS (BETA) FOR ONE WEIGHT (GAMMA)
+####EACH OF THE COEFFICIENT VECTOR CORRESPONDS TO ONE L1 PENALTY (LAMBDA)
+for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
+  
+  ####WE NEED TO STORE THE BETA IN CERTAIN FORMAT TO LEVERAGE THE FAST PLINK SOFTWARE FOR PGS EVALUATION
+  
+  
+  
+  
+}
 #####
 source("general_pipeline_parameters.R")
 print('the directory of the main pipeline is')
