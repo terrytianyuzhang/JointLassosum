@@ -24,6 +24,8 @@ After fitting the JLS models, essentially calculating the high-dimensional Lasso
 
 The individuals do not need to be those involved in the GWAS study---we even allow them to be simulated synthetic "individuals" so long as the SNP information is preserved. We suggest the users download the original data from 1000 Genomes Project in their cluster computer and sequentially run our [simualtion pipeline](/Generate_reference_populaton/) to generate a "synthetic" individual in the required format. 
 
+## Match the SNPs in GWAS and Reference Panels
+
 
 
 
