@@ -13,7 +13,7 @@ JLS_population_weight <- c(0.2, 0.5, 0.8) #gamma parameter in the paper
 JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result_internal/JLS_result_weight_is'
 genotype_plink2_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TUNE/YRI.TUNE'
 genotype_plink_file <- '/raid6/Tianyu/PRS/sharable/data_internal/YRI.TUNE'
-AUC_result_file <- '/raid6/Tianyu/PRS/sharable/result_internal/JLS_result_AUC.Rdata'
+AUC_result_file <- '/raid6/Tianyu/PRS/sharable/result_internal/JLS_result_AUC.txt'
 for(JLS_population_weight_index in 1:length(JLS_population_weight)){
   JLS_population_weight_one <- JLS_population_weight[JLS_population_weight_index]
   
@@ -85,7 +85,7 @@ for(JLS_population_weight_index in 1:length(JLS_population_weight)){
                                 AUC = current_AUC))
   }
 }
-save(JLS_AUC, file = AUC_result_file)
+write.table(JLS_AUC, file = AUC_result_file)
 
 
 
