@@ -3,16 +3,31 @@
 ####the genotype information is simulated
 ####the regression coefficient vector beta0 is calcuated from the original fit of combined lasso
 ####it should be one corresponding to a smallish lambda
-predict_PGS_given_coefficient <- function(JLS_result_prefix, para_tuning_result_folder,
+file_name_generator_weight_and_l1_penalty <- function(folder, prefix, weight, l1_penalty = NA, suffix){
+  first_half <- paste0(folder, prefix, "weight_is_", sprintf("%.2f",weight))
+  if(is.na(l1_penalty)){
+    file_name <- paste0(first_half, suffix)
+  }else{
+    file_name <- paste0(first_half, '_l1_penalty_is_', sprintf("%.4f",l1_penalty), suffix)
+  }
+  return(file_name)
+}
+
+predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_folder,
                                           population_type, synthetic_population_prefix,
                                           JLS_population_weight_one, JLS_l1_penalty_one){
-  JLS_regression_coefficient_file <- paste0(JLS_result_prefix, 
-                                            sprintf("%.2f",JLS_population_weight_one), '_coefficient.txt')
+  
+  JLS_regression_coefficient_file <- paste0(JLS_result_folder, 
+                                           'JLS_result_weight_is',
+                                           sprintf("%.2f",JLS_population_weight_one),
+                                           '_coefficient.txt')
   JLS_regression_coefficient <- fread(JLS_regression_coefficient_file)
   
   
-  JLS_result_one_weight_file <- paste0(JLS_result_prefix, 
-                                       sprintf("%.2f",JLS_population_weight_one), '.Rdata')
+  JLS_result_one_weight_file <- paste0(JLS_result_folder, 
+                                       'JLS_result_weight_is',
+                                       sprintf("%.2f",JLS_population_weight_one),
+                                       '.Rdata')
   JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
   
   l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
@@ -20,18 +35,19 @@ predict_PGS_given_coefficient <- function(JLS_result_prefix, para_tuning_result_
                                A1 = unlist(lapply(strsplit(JLS_regression_coefficient$ID, ":"),`[[`,4)),
                                BETA = JLS_regression_coefficient[, ..l1_penalty_index])
   
-  selected_coefficient_file <- paste0(para_tuning_result_folder, "JLS_result_weight_is_",
-                                      sprintf("%.2f",JLS_population_weight_one),
-                                      '_l1_penalty_is_',
-                                      sprintf("%.4f",JLS_l1_penalty_one), '_coefficient.txt')
+  selected_coefficient_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                         'JLS_result_',
+                                                                         JLS_population_weight_one,
+                                                                         JLS_l1_penalty_one,
+                                                                         '_coefficient.txt')
   write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
   
   ####PLACE TO STORE THE PGS RESULTS
-  PGS_file <- paste0(para_tuning_result_folder, population_type, "_prediction_score_weight_is_",
-                     sprintf("%.2f",JLS_population_weight_one),
-                     '_l1_penalty_is_',
-                     sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]))
-  
+  PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                        paste0(population_type, '_prediction_score_'),
+                                                        JLS_population_weight_one,
+                                                        JLS_result_one_weight$lambda[l1_penalty_index],
+                                                        NULL)
   ###NOW THE REAL WORK IS HAPPENING
   plink2.command <- paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
                           "--bfile", synthetic_population_prefix ,

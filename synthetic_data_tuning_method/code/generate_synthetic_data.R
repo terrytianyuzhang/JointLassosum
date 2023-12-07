@@ -17,7 +17,7 @@ JLS_population_weight_one <- 0.5 ###THIS NEED TO BE ONE OF THE CANDIDATE "GAMMA"
 JLS_l1_penalty_one <- 0.005###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
 
 ##the result of one JLS fit is the input of this pipeline
-JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is' ###POINT THE CODE TO THE OUTPUT OF JLS FITTING RESULT. AFTER RUNNING fit_JLS.R
+JLS_result_folder <- '/raid6/Tianyu/PRS/sharable/result/' ###POINT THE CODE TO THE OUTPUT OF JLS FITTING RESULT. AFTER RUNNING fit_JLS.R
 big_population_type <- 'CEU'
 small_population_type <- 'YRI'
 synthetic_big_population_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr21n22' ###THE SYNTHETIC POPULATION GENOTYPE DATA
@@ -29,23 +29,23 @@ small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_
 para_tuning_result_folder <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/result/' ###PLACE TO STORE PARAMETER TUNING RESULTS
 
 #####STEP 1: DETERMINE THE PGS FOR EACH INDIVIDUAL IN THE SYNTHETIC POPULATION
-
-predict_PGS_given_coefficient(JLS_result_prefix = JLS_result_prefix,
+predict_PGS_given_coefficient(JLS_result_folder = JLS_result_folder,
                               para_tuning_result_folder = para_tuning_result_folder,
                               population_type = big_population_type,
                               synthetic_population_prefix = synthetic_big_population_prefix,
                               JLS_population_weight_one = JLS_population_weight_one,
                               JLS_l1_penalty_one = JLS_l1_penalty_one)
 
-predict_PGS_given_coefficient(JLS_result_prefix = JLS_result_prefix,
+predict_PGS_given_coefficient(JLS_result_folder = JLS_result_folder,
                               para_tuning_result_folder = para_tuning_result_folder,
                               population_type = small_population_type,
                               synthetic_population_prefix = synthetic_small_population_prefix,
                               JLS_population_weight_one = JLS_population_weight_one,
                               JLS_l1_penalty_one = JLS_l1_penalty_one)
+
 #####STEP 2: ASSIGN LABEL PROVIDED PGS
-synthetic_label_given_PGS(GWAS_file = big_population_GWAS_file,
-                         synthetic_label_file = big_population_synthetic_label_file,
+synthetic_label_given_PGS(GWAS_file = small_population_GWAS_file,
+                         synthetic_label_file = small_population_synthetic_label_file,
                          s.size = s.sizes[i.set],
                          beta0 = betaGenerateData,
                          risk.score = risk.score.list[[i.set]],
