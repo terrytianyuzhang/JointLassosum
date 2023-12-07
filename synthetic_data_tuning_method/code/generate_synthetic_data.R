@@ -17,148 +17,45 @@ JLS_population_weight_one <- 0.5 ###THIS NEED TO BE ONE OF THE CANDIDATE "GAMMA"
 JLS_l1_penalty_one <- 0.005###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
 
 ##the result of one JLS fit is the input of this pipeline
-JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/input/'
-para_tuning_result_prefix <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/result/'
+JLS_result_prefix <- '/raid6/Tianyu/PRS/sharable/result/JLS_result_weight_is' ###POINT THE CODE TO THE OUTPUT OF JLS FITTING RESULT. AFTER RUNNING fit_JLS.R
+big_population_type <- 'CEU'
+small_population_type <- 'YRI'
+synthetic_big_population_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr21n22' ###THE SYNTHETIC POPULATION GENOTYPE DATA
+synthetic_small_population_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr21n22'
+large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_GWAS_two_chr'#GWAS RESULTS, COPY THIS FROM fit_JLS.R
+small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
 
+###OUTPUT FILES
+para_tuning_result_folder <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/result/' ###PLACE TO STORE PARAMETER TUNING RESULTS
 
-JLS_regression_coefficient_file <- paste0(JLS_result_prefix, 
-                                          sprintf("%.2f",JLS_population_weight_one), '_coefficient.txt')
-JLS_regression_coefficient <- fread(JLS_regression_coefficient_file)
+#####STEP 1: DETERMINE THE PGS FOR EACH INDIVIDUAL IN THE SYNTHETIC POPULATION
 
+predict_PGS_given_coefficient(JLS_result_prefix = JLS_result_prefix,
+                              para_tuning_result_folder = para_tuning_result_folder,
+                              population_type = big_population_type,
+                              synthetic_population_prefix = synthetic_big_population_prefix,
+                              JLS_population_weight_one = JLS_population_weight_one,
+                              JLS_l1_penalty_one = JLS_l1_penalty_one)
 
-JLS_result_one_weight_file <- paste0(JLS_result_prefix, 
-                                     sprintf("%.2f",JLS_population_weight_one), '.Rdata')
-JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
-
-l1_penalty_index <- which(JLS_result_one_weight$lambda == JLS_l1_penalty_one)
-effect_size_df <- data.frame(SNP = JLS_regression_coefficient$ID, 
-                             A1 = unlist(lapply(strsplit(JLS_regression_coefficient$ID, ":"),`[[`,4)),
-                             BETA = JLS_regression_coefficient[, ..l1_penalty_index])
-
-selected_coefficient_file <- paste0(para_tuning_result_prefix, 
-                                    sprintf("%.2f",JLS_population_weight_one),
-                                    '_l1_penalty_is_',
-                                    sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_coefficient.txt')
-write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
-
-####PLACE TO STORE THE PGS RESULTS
-PGS_file <- paste0(para_tuning_result_prefix, 
-                   sprintf("%.2f",JLS_population_weight_one),
-                   '_l1_penalty_is_',
-                   sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS')
-
-###NOW THE REAL WORK IS HAPPENING
-plink2.command <- paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
-                       "--bfile", small_population_reference_prefix_merged ,
-                       "--score", selected_coefficient_file, "header-read",1,2,
-                       "--score-col-nums",3,
-                       "--out",PGS_file,
-                       sep=" ")
-
-system(plink2.command)
-
-####NOW WE HAVE ALL THE COEFFICIENTS (BETA) FOR ONE WEIGHT (GAMMA)
-####EACH OF THE COEFFICIENT VECTOR CORRESPONDS TO ONE L1 PENALTY (LAMBDA)
-for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
-  
-  ####WE NEED TO STORE THE BETA IN CERTAIN FORMAT TO LEVERAGE THE FAST PLINK SOFTWARE FOR PGS EVALUATION
-  
-  
-  
-  
-}
-#####
-source("general_pipeline_parameters.R")
-print('the directory of the main pipeline is')
-print(main_simulation_pipeline_directory)
-
-# print('the directory of the parameter tuning pipeline is')
-# print(parameter_tuning_pipeline_directory)
-
-# load the parameters for this simulation
-# load(paste0(main_simulation_pipeline_directory, "Work/Sim-",i.sim,"/simulation-params.RData"))
-# main.dir <- params$run.info$main.dir #"/raid6/Tianyu/PRS/SimulationPipeline/"
-# work.dir <- params$run.info$work.dir #"/raid6/Tianyu/PRS/SimulationPipeline/Work/Sim-800/"
-TimingResultDirectory <- '/raid6/Tianyu/PRS/parameter_tuning_from_GWAS'
-timing_result_slow <- system.time({
-ParameterTuningDirectory <- paste0(work.dir, "ParameterTuningData",
-                                   "_gamma_", sprintf("%.2f",gammaGenerateData), 
-                                   "_lambda_", sprintf("%.4f",lambda[lambdaIndexGenerateData]))
-dir.create(ParameterTuningDirectory,
-           showWarnings = F,recursive = T)
-##########read in lasso results##########
-TrainJLFile <- paste0(work.dir, 
-                      'JointLassoSum/JointLassosum--gamma-', 
-                      sprintf("%.2f",gammaGenerateData), 
-                      '.Rdata')
-TrainJLResult <- get(load(TrainJLFile))
-AllBeta <- TrainJLResult$beta
-
-betaGenerateData <- AllBeta[, lambdaIndexGenerateData] #use a small lambda to generate bootstrap data
-##########read in genotype and calculate score#############
-map <- fread(paste0(main.dir,
-                    'Data/chr1-22-qc-frq-ld.block.map'))
-CHR <- gsub("chr","",map$CHROM)
-SNP <- map$ID
-names(betaGenerateData) <- SNP
-
-
-# ######SECTION 1: calculate PGS of the new individuals####
-# risk.score.list <- vector("list",2)
-####save the selected preliminary beta
-beta_generate_data_file <- './temp_file_generate_data/beta_generate_data.txt'
-A1 <- unlist(lapply(strsplit(SNP, ":"),`[[`,4))
-effect_size_df <- data.frame(SNP = SNP, 
-                             A1 = A1,
-                             BETA = betaGenerateData)
-write.table(effect_size_df, beta_generate_data_file, sep = "\t", quote = FALSE, row.names = FALSE)
-
-ancs <- c('CEU', 'YRI')
-for(i.set in 1:2){
-  anc <- ancs[i.set]
-  # re.pgss <- mclapply(chrs, PGS_by_chr, anc = anc,
-  #                     beta0 = betaGenerateData, mc.cores = 8, mc.preschedule = FALSE)
-  # 
-  # 
-  # ### sum the results
-  # pgs <- re.pgss[[1]] #this is the first chromosome
-  # for(i in 2:length(re.pgss)){
-  #   pgs <- pgs+re.pgss[[i]]
-  # }
-  # 
-  # risk.score.list[[i.set]] <- pgs
-  
-  ##calculate the PRS for each individual in the reference panel
-  if(anc == 'CEU'){
-    file.title <- 'CEU-20K'
-  }else{
-    file.title <- 'YRI-4K'  
-  }
-  
-  reference_genotype_file <- paste0("/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/", file.title, "/", file.title)
-  PRS_file <- "./temp_file_generate_data/PRS_generate_data"
-  plink2.command = paste(plink2,"--nonfounders","--allow-no-sex","--threads",24,"--memory",25000,
-                         "--bfile", reference_genotype_file ,
-                         "--score", beta_generate_data_file,"header-read",1,2,
-                         "--score-col-nums",3,
-                         "--out",PRS_file,
-                         sep=" ")
-  
-  system(plink2.command)
-}
-### save risk scores for each population
-
-# save(risk.score.list, file = paste0(ParameterTuningDirectory,
-                                    # '/riskscore.Rdata'))
-})
-timing_file_slow <- paste0(TimingResultDirectory,
-                      '/timing_result_slow.rds')
-saveRDS(timing_result_slow, file = timing_file_slow)
-# ###pgs is the risk score for each subject in the reference panel
+predict_PGS_given_coefficient(JLS_result_prefix = JLS_result_prefix,
+                              para_tuning_result_folder = para_tuning_result_folder,
+                              population_type = small_population_type,
+                              synthetic_population_prefix = synthetic_small_population_prefix,
+                              JLS_population_weight_one = JLS_population_weight_one,
+                              JLS_l1_penalty_one = JLS_l1_penalty_one)
+#####STEP 2: ASSIGN LABEL PROVIDED PGS
+synthetic_label_given_PGS(GWAS_file = big_population_GWAS_file,
+                         synthetic_label_file = big_population_synthetic_label_file,
+                         s.size = s.sizes[i.set],
+                         beta0 = betaGenerateData,
+                         risk.score = risk.score.list[[i.set]],
+                         case.prop = caseProportion)
 #
 timing_result <- system.time({
 
-######SECTION 2: generate simulated Y####
+  #####STEP 2: BASED ON THE PGS, ASSIGN EACH OF THEM A SYNTHETIC OUTCOME LABEL
+  
+  
 risk.score.list <- get(load(paste0(ParameterTuningDirectory,
                                    '/riskscore.Rdata')))
 #####we need to read figure out what is the original data noise level
@@ -175,13 +72,7 @@ for(i.set in 1:2){
   SyntheticYFile <- paste0(ParameterTuningDirectory, '/',
                            ancs[i.set],'-SyntheticY', '.RData')
 
-  cv.generatey(TrainGWASFile = TrainGWASFile,
-               SyntheticYFile = SyntheticYFile,
-               anc = ancs[i.set],
-               s.size = s.sizes[i.set],
-               beta0 = betaGenerateData,
-               risk.score = risk.score.list[[i.set]],
-               case.prop = caseProportion)
+  
 }
 
 print('generated synthetic outcome Y')

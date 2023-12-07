@@ -1,104 +1,46 @@
-######Tianyu is the original creater of this file
-######tianyuz3@andrew.cmu.edu####
 
 ####calculate the risk score of some simulated individuals
 ####the genotype information is simulated
 ####the regression coefficient vector beta0 is calcuated from the original fit of combined lasso
 ####it should be one corresponding to a smallish lambda
-
-PGS_by_chr <- function(chr, anc, beta0){
-  print(paste0("calculate PGS with chr", chr))
+predict_PGS_given_coefficient <- function(JLS_result_prefix, para_tuning_result_folder,
+                                          population_type, synthetic_population_prefix,
+                                          JLS_population_weight_one, JLS_l1_penalty_one){
+  JLS_regression_coefficient_file <- paste0(JLS_result_prefix, 
+                                            sprintf("%.2f",JLS_population_weight_one), '_coefficient.txt')
+  JLS_regression_coefficient <- fread(JLS_regression_coefficient_file)
   
-  chr_loc <- as.numeric(gsub(':.*$','',names(beta0)))
-  sub.beta0 <- beta0[chr_loc == chr & beta0 != 0] #subset relevant coordinates of beta
-  snp <- names(sub.beta0)
   
-  ####load genotype data without label
-  if(anc == 'CEU'){
-    file.title <- 'CEU-20K'
-  }else{
-    file.title <- 'YRI-4K'  
-  }
+  JLS_result_one_weight_file <- paste0(JLS_result_prefix, 
+                                       sprintf("%.2f",JLS_population_weight_one), '.Rdata')
+  JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
   
-  ###this is the reference panel
-  gnt<-read.plink(bed=paste0("/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/", file.title,"/CHR/",file.title,"-chr", chr,".bed"),
-                  bim=paste0("/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/", file.title,"/CHR/",file.title,"-chr", chr,".bim"),
-                  fam=paste0("/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/", file.title,"/CHR/",file.title,"-chr", chr,".fam"),
-                  select.snps = snp)
+  l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
+  effect_size_df <- data.frame(SNP = JLS_regression_coefficient$ID, 
+                               A1 = unlist(lapply(strsplit(JLS_regression_coefficient$ID, ":"),`[[`,4)),
+                               BETA = JLS_regression_coefficient[, ..l1_penalty_index])
   
-  # system.time(gnt<-read.plink(bed=paste0("/raid6/Tianyu/PRS/bert_sample/",anc,".TUNE/CHR/",anc,".TUNE-chr",chr,".bed"),
-  #                             bim=paste0("/raid6/Tianyu/PRS/bert_sample/",anc,".TUNE/CHR/",anc,".TUNE-chr",chr,".bim"),
-  #                             fam=paste0("/raid6/Tianyu/PRS/bert_sample/",anc,".TUNE/CHR/",anc,".TUNE-chr",chr,".fam"),
-  #                             select.snps = snp)
-  # )
-  #example : "/raid6/Tianyu/PRS/bert_sample/YRI.TUNE/CHR/YRI.TUNE-chr20.bed"
+  selected_coefficient_file <- paste0(para_tuning_result_folder, "JLS_result_weight_is_",
+                                      sprintf("%.2f",JLS_population_weight_one),
+                                      '_l1_penalty_is_',
+                                      sprintf("%.4f",JLS_l1_penalty_one), '_coefficient.txt')
+  write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
   
-  # transform the genotypes to a matrix, and reverse the call count. This snpStats package counts the A2 allele, not the A1
-  gnt<- 2 - as(gnt$genotypes,Class="numeric")
+  ####PLACE TO STORE THE PGS RESULTS
+  PGS_file <- paste0(para_tuning_result_folder, population_type, "_prediction_score_weight_is_",
+                     sprintf("%.2f",JLS_population_weight_one),
+                     '_l1_penalty_is_',
+                     sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]))
   
-  print(paste0("the size of chr ", chr, " genotype matrix is (GB)"))
-  print(object.size(gnt)/1e9)
+  ###NOW THE REAL WORK IS HAPPENING
+  plink2.command <- paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
+                          "--bfile", synthetic_population_prefix ,
+                          "--score", selected_coefficient_file, "header-read",1,2,
+                          "--score-col-nums",3,
+                          "--out",PGS_file,
+                          sep=" ")
   
-  # center the columns
-  gnt <-gnt - rep(1, nrow(gnt)) %*% t(colMeans(gnt))
-  # normalize the calls to the unit 1 norm
-  gnt<-normalize.cols(gnt,method="euclidean",p=2)
-  
-  # calculate the pgs
-  re.pgs<-gnt %*% sub.beta0
-  print(paste0("finish calculating PGS with chr", chr))
-  
-  return(re.pgs)
-}
-
-PGS_by_chr_allbeta <- function(chr, anc, beta){
-  print(paste0('claculating PGS of ',anc, 'using chr ', chr))
-  
-  ######next step is generating some risk score using reference genotype
-  ######we can download these genotype from 1000 Genome Project
-  ######for the purpose of thee paper I will just use the reference panel 
-  ######from which the training samples are generated
-  
-  chr_loc <- as.numeric(gsub(':.*$','',rownames(beta)))
-  snp <- rownames(beta)[chr_loc == chr]
-  
-  ####load genotype data without label
-  
-  if(anc == 'CEU'){
-    file.title <- 'CEU-20K'
-  }else{
-    file.title <- 'YRI-4K'  
-  }
-  
-  boost.data.folder <- paste0("/raid6/Tianyu/PRS/BootData/", file.title,"/CHR")
-  boost.data.val.data <- paste0(boost.data.folder, "/", file.title,"-chr", chr, "boost-val")
-  
-  ###this is the reference panel
-  system.time(gnt<-read.plink(bed=paste0(boost.data.val.data,".bed"),
-                              bim=paste0(boost.data.val.data,".bim"),
-                              fam=paste0(boost.data.val.data,".fam"),
-                              select.snps = snp)
-  )
-  #example : "/raid6/Tianyu/PRS/bert_sample/YRI.TUNE/CHR/YRI.TUNE-chr20.bed"
-  
-  # transform the genotypes to a matrix, and reverse the call count. This snpStats package counts the A2 allele, not the A1
-  system.time(gnt<- 2 - as(gnt$genotypes,Class="numeric"))
-  
-  print(paste0("the size of chr ", chr, " genotype matrix is (GB)"))
-  print(object.size(gnt)/1e9)
-  # center the columns
-  system.time(gnt <-gnt - rep(1, nrow(gnt)) %*% t(colMeans(gnt)))
-  # normalize the calls to the unit 1 norm
-  system.time(gnt<-normalize.cols(gnt,method="euclidean",p=2))
-  
-  # apply the proper shrinkage
-  # system.time(gnt<-gnt*sqrt(1-shrink))
-  
-  # calculate the pgs
-  system.time(re.pgs<-gnt%*%beta[chr_loc == chr,])
-  print(paste0('finished claculating PGS of ',anc, 'using chr ', chr))
-  
-  return(re.pgs)
+  system(plink2.command)
 }
 
 ####generate boostrap Y
@@ -107,22 +49,22 @@ PGS_by_chr_allbeta <- function(chr, anc, beta){
 ####Y = binomial(mu), mu = a*riskscore + case proportion
 ####need to estimate the calibration slope a (at least the scale should be correct).
 
-cv.generatey <- function(TrainGWASFile, SyntheticYFile,
-                         anc, s.size, beta0, risk.score, case.prop = 0.5, extra.scaling = 1){
+synthetic_label_given_PGS <- function(GWAS_file, synthetic_label_file,
+                                     beta0, risk.score, case.prop = 0.5, extra.scaling = 1){
   ###case.prop > 0.5 means there is more case than control 
   
   s2 <- sum(risk.score^2) #this is the (rescaled) variance of the risk scores
   
   ##load the original GWAS results
   # p.org <- fread(paste0('/raid6/Ron/prs/data/bert_sample/', anc,'.TRN.PHENO1.glm.logistic.hybrid'))
-  p.org <- fread(TrainGWASFile)
-  
+  p.org <- fread(GWAS_file)
+  population_size <- as.numeric(GWAS$OBS_CT[1])
   # names(p.org)[1] <- 'chr'
   # p.org <- p.org[chr %in% 1:22,]
   cor.org <- p2cor(p = p.org$P, n = s.size, sign = log(p.org$OR)) #original correlation vector
   
   design.factor <- sqrt(case.prop * (1 - case.prop)) 
-  a <- cor.org %*% beta0 * sqrt(s.size) * design.factor / s2 ###model-based formula, I should inlcude the derivation in the paper
+  a <- cor.org %*% beta0 * sqrt(s.size) * design.factor / s2 ###model-based formula, derivation included in the paper
   a <- as.numeric(a) * extra.scaling ###sometimes may need a extra.scaling != 1 to generate better cv data sets
   
   mu <-  a * risk.score + case.prop
@@ -139,7 +81,7 @@ cv.generatey <- function(TrainGWASFile, SyntheticYFile,
   booty <- rbinom(s.size, 1, mu)
   
   # save(booty, file = paste0('/raid6/Tianyu/PRS/BootData/',anc,'_bootY_',setting.title,'.RData'))
-  save(booty, file = SyntheticYFile)
+  save(booty, file = synthetic_label_file)
   ##"/raid6/Tianyu/PRS/BootData/CEU_bootY_calib.RData"
   
 }
