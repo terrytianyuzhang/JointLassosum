@@ -1,8 +1,4 @@
 
-####calculate the risk score of some simulated individuals
-####the genotype information is simulated
-####the regression coefficient vector beta0 is calcuated from the original fit of combined lasso
-####it should be one corresponding to a smallish lambda
 file_name_generator_weight_and_l1_penalty <- function(folder, prefix, weight, l1_penalty = NA, suffix){
   first_half <- paste0(folder, prefix, "weight_is_", sprintf("%.2f",weight))
   if(is.na(l1_penalty)){
@@ -13,10 +9,15 @@ file_name_generator_weight_and_l1_penalty <- function(folder, prefix, weight, l1
   return(file_name)
 }
 
+####CALCULATE THE RISK SCORE OF SOME SYNTHETIC INDIVIDUALS
+####THE GENOTYPE INFORMATION DOES NOT NEED TO CORRESPONDS TO REAL INDIVIDUALS
+####THE REGRESSION COEFFICIENT VECTOR IS CALCULATED FROM THE PRELIMINARY FIT OF JLS
+
 predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_folder,
                                           population_type, synthetic_population_prefix,
                                           JLS_population_weight_one, JLS_l1_penalty_one){
   
+  print("-----now loading the JLS model-----")
   JLS_regression_coefficient_file <- paste0(JLS_result_folder, 
                                            'JLS_result_weight_is',
                                            sprintf("%.2f",JLS_population_weight_one),
@@ -30,7 +31,10 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
                                        '.Rdata')
   JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
   
-  l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
+  print("-----finished-----")
+  
+  print("-----save the regression coefficient in the required format by plink-----")
+  l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-5))[1]
   effect_size_df <- data.frame(SNP = JLS_regression_coefficient$ID, 
                                A1 = unlist(lapply(strsplit(JLS_regression_coefficient$ID, ":"),`[[`,4)),
                                BETA = JLS_regression_coefficient[, ..l1_penalty_index])
@@ -41,6 +45,7 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
                                                                          JLS_l1_penalty_one,
                                                                          '_coefficient.txt')
   write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
+  print("-----done-----")
   
   ####PLACE TO STORE THE PGS RESULTS
   PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
@@ -48,6 +53,8 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
                                                         JLS_population_weight_one,
                                                         JLS_l1_penalty_one,
                                                         NULL)
+  
+  print("-----push the PGS prediction work to plink-----")
   ###NOW THE REAL WORK IS HAPPENING
   plink2.command <- paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
                           "--bfile", synthetic_population_prefix ,
@@ -57,21 +64,25 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
                           sep=" ")
   
   system(plink2.command)
+  print("-----plink finished-----")
 }
 
-####generate boostrap Y
-####mean value of Y should be similar to the case proportion
-####Y is assumed to be generated from the model
-####Y = binomial(mu), mu = a*riskscore + case proportion
-####need to estimate the calibration slope a (at least the scale should be correct).
+####GENERATE SYNTHETIC LABELS
+####SAMPLE SIZE, CASE-CONTROL RATIO SHOULD BE SIMILAR TO THAT OF THE ORIGINAL GWAS STUDY
 
+#UNCOMMENT FOR TESTING PURPOSE
+# GWAS_file = small_population_GWAS_file
+# population_type = small_population_type
+# case_proportion = small_population_GWAS_case_proportion
+# model_based_formula = FALSE
 synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
                                       population_type, para_tuning_result_folder,
-                                      case_proportion, JLS_population_weight_one,
+                                      case_proportion,   ###case_proportion > 0.5 means there is more case than control 
+                                      JLS_population_weight_one,
                                       JLS_l1_penalty_one, extra_scaling = 1,
                                       model_based_formula = FALSE){
-  # function(JLS_result_folder, GWAS_file, synthetic_label_file,
-  #                                    beta0, risk.score, case_proportion = 0.5, ){
+  
+  print('-----load the risk score information generated last step-----')
   PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
                                                         paste0(population_type, '_prediction_score_'),
                                                         JLS_population_weight_one,
@@ -82,30 +93,32 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
   risk_score <- as.matrix(PGS_complete[, 6])
   risk_score <- risk_score - mean(risk_score)
   
-  ###READ IN THE PRELIMINARY BETA
-  JLS_result_one_weight_file <- paste0(JLS_result_folder, 
-                                       'JLS_result_weight_is',
-                                       sprintf("%.2f",JLS_population_weight_one),
-                                       '.Rdata')
-  JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
+  print('-----done-----')
   
-  l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
-  beta_preliminary <- as.matrix(JLS_regression_coefficient[, ..l1_penalty_index])
-  ###case_proportion > 0.5 means there is more case than control 
-  rescaled_variance <- sum(risk_score^2) #this is the (rescaled) variance of the risk scores
-
   ##load the original GWAS results
-  # GWAS <- fread(paste0('/raid6/Ron/prs/data/bert_sample/', anc,'.TRN.PHENO1.glm.logistic.hybrid'))
-  GWAS <- fread(GWAS_file)
+  GWAS <- fread(GWAS_file, nrows = 3) ##I ONLY NEED THE SAMPLE SIZE INFORMATION
   population_size <- as.numeric(GWAS$OBS_CT[1])
-  # names(GWAS)[1] <- 'chr'
-  # GWAS <- GWAS[chr %in% 1:22,]
-  pheno_gene_correlation <- p2cor(p = GWAS$P, n = population_size, sign = log(GWAS$OR)) #original correlation vector
-  
-  design_factor <- sqrt(case_proportion * (1 - case_proportion)) 
   
   if(model_based_formula == TRUE){
     ###model-based formula, derivation included in the paper
+    
+    GWAS <- fread(GWAS_file) 
+    
+    print('-----load the preliminary regression coefficients-----')
+    ###READ IN THE PRELIMINARY BETA
+    JLS_result_one_weight_file <- paste0(JLS_result_folder, 
+                                         'JLS_result_weight_is',
+                                         sprintf("%.2f",JLS_population_weight_one),
+                                         '.Rdata')
+    JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
+    
+    l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
+    beta_preliminary <- as.matrix(JLS_result_one_weight$beta[, l1_penalty_index])
+    print('-----done-----')
+    
+    pheno_gene_correlation <- p2cor(p = GWAS$P, n = population_size, sign = log(GWAS$OR)) #original correlation vector
+    design_factor <- sqrt(case_proportion * (1 - case_proportion)) 
+    rescaled_variance <- sum(risk_score^2) #this is the (rescaled) variance of the risk scores
     slope <- pheno_gene_correlation %*% beta_preliminary * sqrt(population_size) * design_factor / rescaled_variance 
     slope <- as.numeric(slope) * extra_scaling ###sometimes may need a extra.scaling != 1 to generate better cv data sets
     
@@ -117,25 +130,21 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
   
   
   #make sure mu is between 0 and 1 since it is a probability
-  print(paste0('number of beyond 0/1 range', sum(case_probability > 1 | case_probability<0)))
+  # print(paste0('number of beyond 0/1 range', sum(case_probability > 1 | case_probability<0)))
   case_probability[case_probability > 1] <- 1
   case_probability[case_probability < 0] <- 0
   
-  # epsilon <- rbinom(s.size,1,mu)
-  # epsilon <- as.numeric(epsilon == 1)*(1-mu) + as.numeric(epsilon == 0)*(-mu)
-  # booty <- mu + epsilon
-  ###
+  ###DRAW THE SYNTEHTIC LABEL
   synthetic_label <- rbinom(population_size, 1, case_probability)
+  print('-----summary of the synthetic label-----')
+  print(summary(synthetic_label))
   
-  # save(booty, file = paste0('/raid6/Tianyu/PRS/BootData/',anc,'_bootY_',setting.title,'.RData'))
   synthetic_label_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
                                                                     paste0(population_type, '_synthetic_label_'),
                                                                     JLS_population_weight_one,
                                                                     JLS_l1_penalty_one,
                                                                     '.Rdata')
   save(synthetic_label, file = synthetic_label_file)
-  ##"/raid6/Tianyu/PRS/BootData/CEU_bootY_calib.RData"
-  
 }
 
 splitTrainValidation <- function(chr = NULL, anc, train.index, val.index, 

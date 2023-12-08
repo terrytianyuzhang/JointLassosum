@@ -61,32 +61,6 @@ synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
                           case_proportion = large_population_GWAS_case_proportion,
                           JLS_population_weight_one = JLS_population_weight_one,
                           JLS_l1_penalty_one = JLS_l1_penalty_one)
-#
-timing_result <- system.time({
-
-  #####STEP 2: BASED ON THE PGS, ASSIGN EACH OF THEM A SYNTHETIC OUTCOME LABEL
-  
-  
-risk.score.list <- get(load(paste0(ParameterTuningDirectory,
-                                   '/riskscore.Rdata')))
-#####we need to read figure out what is the original data noise level
-ancs <- c('CEU', 'YRI')
-CEUSampleSize <- sample_sizes$CEU$n.case + sample_sizes$CEU$n.control
-YRISampleSize <- sample_sizes$YRI$n.case + sample_sizes$YRI$n.control
-
-s.sizes <- c(CEUSampleSize, YRISampleSize)
-caseProportion <- sample_sizes$CEU$n.case / CEUSampleSize ###the case proportion is the same for both populations
-
-for(i.set in 1:2){
-  TrainGWASFile <- paste0(work.dir, 'TRN/',
-                          ancs[i.set],'.TRN.PHENO1.glm.logistic.hybrid')
-  SyntheticYFile <- paste0(ParameterTuningDirectory, '/',
-                           ancs[i.set],'-SyntheticY', '.RData')
-
-  
-}
-
-print('generated synthetic outcome Y')
 
 
 ######SECTION 3: split training and validation individuals####
@@ -212,7 +186,7 @@ for(population_index in 1:2){
          sep = ' ')
   
 }
-})
+
 timing_file <- paste0(TimingResultDirectory,
                       '/timing_result.rds')
 saveRDS(timing_result, file = timing_file)

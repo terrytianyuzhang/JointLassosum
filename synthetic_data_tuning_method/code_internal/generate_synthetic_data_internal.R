@@ -11,7 +11,7 @@ library(wordspace)
 library(foreach)
 
 #####
-source("generate_synthetic_data_function.R")
+source("/raid6/Tianyu/PRS/sharable_synthetic_tuning/code/generate_synthetic_data_function.R")
 
 JLS_population_weight_one <- 0.5 ###THIS NEED TO BE ONE OF THE CANDIDATE "GAMMA"
 JLS_l1_penalty_one <- 0.02236068###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
@@ -20,10 +20,16 @@ JLS_l1_penalty_one <- 0.02236068###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
 JLS_result_folder <- '/raid6/Tianyu/PRS/sharable/result_internal/' ###POINT THE CODE TO THE OUTPUT OF JLS FITTING RESULT. AFTER RUNNING fit_JLS.R
 large_population_type <- 'CEU'
 small_population_type <- 'YRI'
+
+synthetic_large_population_prefix <- '/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/CEU-20K/CEU-20K'
+synthetic_small_population_prefix <- '/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/YRI-4K/YRI-4K'
+
 large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
 small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
+
 large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
 small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
+
 large_population_GWAS_case_proportion <- 0.5
 small_population_GWAS_case_proportion <- 0.5
 
@@ -64,36 +70,8 @@ synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
                           JLS_population_weight_one = JLS_population_weight_one,
                           JLS_l1_penalty_one = JLS_l1_penalty_one)
 #
-timing_result <- system.time({
 
-  #####STEP 2: BASED ON THE PGS, ASSIGN EACH OF THEM A SYNTHETIC OUTCOME LABEL
-  
-  
-risk.score.list <- get(load(paste0(ParameterTuningDirectory,
-                                   '/riskscore.Rdata')))
-#####we need to read figure out what is the original data noise level
-ancs <- c('CEU', 'YRI')
-CEUSampleSize <- sample_sizes$CEU$n.case + sample_sizes$CEU$n.control
-YRISampleSize <- sample_sizes$YRI$n.case + sample_sizes$YRI$n.control
-
-s.sizes <- c(CEUSampleSize, YRISampleSize)
-caseProportion <- sample_sizes$CEU$n.case / CEUSampleSize ###the case proportion is the same for both populations
-
-for(i.set in 1:2){
-  TrainGWASFile <- paste0(work.dir, 'TRN/',
-                          ancs[i.set],'.TRN.PHENO1.glm.logistic.hybrid')
-  SyntheticYFile <- paste0(ParameterTuningDirectory, '/',
-                           ancs[i.set],'-SyntheticY', '.RData')
-
-  
-}
-
-print('generated synthetic outcome Y')
-
-
-######SECTION 3: split training and validation individuals####
-###### 1/(nfold) left out for validation ####
-##########split training and validation########
+#####STEP 3: SPLIT THE TRAINING AND VALIDATION SETS WITHIN THE SYNTHETIC POPULATION
 set.seed(2019)
 
 for(i.set in 1:2){
@@ -127,15 +105,44 @@ for(i.set in 1:2){
   
   ####generate training and testing .fam files
   mclapply(chrs, splitTrainValidation, anc = anc,
-          train.index = train.index, val.index = val.index,
-          ParameterTuningDirectory = ParameterTuningDirectory,
-          TrainSampleIndexFile = TrainSampleIndexFile,
-          ValidationSampleIndexFile = ValidationSampleIndexFile,
-          plink = plink, mc.cores = 16, mc.preschedule = FALSE)
+           train.index = train.index, val.index = val.index,
+           ParameterTuningDirectory = ParameterTuningDirectory,
+           TrainSampleIndexFile = TrainSampleIndexFile,
+           ValidationSampleIndexFile = ValidationSampleIndexFile,
+           plink = plink, mc.cores = 16, mc.preschedule = FALSE)
   print(paste(anc, 'is done splitting'))
 }
 
 print('finished sample splitting')
+
+
+timing_result <- system.time({
+
+  #####STEP 2: BASED ON THE PGS, ASSIGN EACH OF THEM A SYNTHETIC OUTCOME LABEL
+  
+  
+risk.score.list <- get(load(paste0(ParameterTuningDirectory,
+                                   '/riskscore.Rdata')))
+#####we need to read figure out what is the original data noise level
+ancs <- c('CEU', 'YRI')
+CEUSampleSize <- sample_sizes$CEU$n.case + sample_sizes$CEU$n.control
+YRISampleSize <- sample_sizes$YRI$n.case + sample_sizes$YRI$n.control
+
+s.sizes <- c(CEUSampleSize, YRISampleSize)
+caseProportion <- sample_sizes$CEU$n.case / CEUSampleSize ###the case proportion is the same for both populations
+
+for(i.set in 1:2){
+  TrainGWASFile <- paste0(work.dir, 'TRN/',
+                          ancs[i.set],'.TRN.PHENO1.glm.logistic.hybrid')
+  SyntheticYFile <- paste0(ParameterTuningDirectory, '/',
+                           ancs[i.set],'-SyntheticY', '.RData')
+
+  
+}
+
+print('generated synthetic outcome Y')
+
+
 
 ######SECTION 4: calculate GWAS on synthetic data######
 chrs <- 1:22
