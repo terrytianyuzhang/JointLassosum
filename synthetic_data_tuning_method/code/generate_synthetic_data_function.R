@@ -46,7 +46,7 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
   PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
                                                         paste0(population_type, '_prediction_score_'),
                                                         JLS_population_weight_one,
-                                                        JLS_result_one_weight$lambda[l1_penalty_index],
+                                                        JLS_l1_penalty_one,
                                                         NULL)
   ###NOW THE REAL WORK IS HAPPENING
   plink2.command <- paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
@@ -65,39 +65,75 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
 ####Y = binomial(mu), mu = a*riskscore + case proportion
 ####need to estimate the calibration slope a (at least the scale should be correct).
 
-synthetic_label_given_PGS <- function(GWAS_file, synthetic_label_file,
-                                     beta0, risk.score, case.prop = 0.5, extra.scaling = 1){
-  ###case.prop > 0.5 means there is more case than control 
+synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
+                                      population_type, para_tuning_result_folder,
+                                      case_proportion, JLS_population_weight_one,
+                                      JLS_l1_penalty_one, extra_scaling = 1,
+                                      model_based_formula = FALSE){
+  # function(JLS_result_folder, GWAS_file, synthetic_label_file,
+  #                                    beta0, risk.score, case_proportion = 0.5, ){
+  PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                        paste0(population_type, '_prediction_score_'),
+                                                        JLS_population_weight_one,
+                                                        JLS_l1_penalty_one,
+                                                        '.sscore')
+  ###READ IN THE PREDICTED PGS SCORE FOR EACH INDIVIDUAL IN THE SYNTHETIC POPULATION
+  PGS_complete <- fread(PGS_file, header = T)
+  risk_score <- as.matrix(PGS_complete[, 6])
+  risk_score <- risk_score - mean(risk_score)
   
-  s2 <- sum(risk.score^2) #this is the (rescaled) variance of the risk scores
+  ###READ IN THE PRELIMINARY BETA
+  JLS_result_one_weight_file <- paste0(JLS_result_folder, 
+                                       'JLS_result_weight_is',
+                                       sprintf("%.2f",JLS_population_weight_one),
+                                       '.Rdata')
+  JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
   
+  l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
+  beta_preliminary <- as.matrix(JLS_regression_coefficient[, ..l1_penalty_index])
+  ###case_proportion > 0.5 means there is more case than control 
+  rescaled_variance <- sum(risk_score^2) #this is the (rescaled) variance of the risk scores
+
   ##load the original GWAS results
-  # p.org <- fread(paste0('/raid6/Ron/prs/data/bert_sample/', anc,'.TRN.PHENO1.glm.logistic.hybrid'))
-  p.org <- fread(GWAS_file)
+  # GWAS <- fread(paste0('/raid6/Ron/prs/data/bert_sample/', anc,'.TRN.PHENO1.glm.logistic.hybrid'))
+  GWAS <- fread(GWAS_file)
   population_size <- as.numeric(GWAS$OBS_CT[1])
-  # names(p.org)[1] <- 'chr'
-  # p.org <- p.org[chr %in% 1:22,]
-  cor.org <- p2cor(p = p.org$P, n = s.size, sign = log(p.org$OR)) #original correlation vector
+  # names(GWAS)[1] <- 'chr'
+  # GWAS <- GWAS[chr %in% 1:22,]
+  pheno_gene_correlation <- p2cor(p = GWAS$P, n = population_size, sign = log(GWAS$OR)) #original correlation vector
   
-  design.factor <- sqrt(case.prop * (1 - case.prop)) 
-  a <- cor.org %*% beta0 * sqrt(s.size) * design.factor / s2 ###model-based formula, derivation included in the paper
-  a <- as.numeric(a) * extra.scaling ###sometimes may need a extra.scaling != 1 to generate better cv data sets
+  design_factor <- sqrt(case_proportion * (1 - case_proportion)) 
   
-  mu <-  a * risk.score + case.prop
+  if(model_based_formula == TRUE){
+    ###model-based formula, derivation included in the paper
+    slope <- pheno_gene_correlation %*% beta_preliminary * sqrt(population_size) * design_factor / rescaled_variance 
+    slope <- as.numeric(slope) * extra_scaling ###sometimes may need a extra.scaling != 1 to generate better cv data sets
+    
+    case_probability <-  slope * risk_score + case_proportion
+  }else{
+    risk_score <- risk_score/ max(max(risk_score), -min(risk_score))
+    case_probability <-  min(case_proportion, 1-case_proportion) * risk_score + case_proportion
+  }
+  
   
   #make sure mu is between 0 and 1 since it is a probability
-  print(paste0('number of beyond 0/1 range', sum(mu > 1 | mu<0)))
-  mu[mu > 1] <- 1
-  mu[mu < 0] <- 0
+  print(paste0('number of beyond 0/1 range', sum(case_probability > 1 | case_probability<0)))
+  case_probability[case_probability > 1] <- 1
+  case_probability[case_probability < 0] <- 0
   
   # epsilon <- rbinom(s.size,1,mu)
   # epsilon <- as.numeric(epsilon == 1)*(1-mu) + as.numeric(epsilon == 0)*(-mu)
   # booty <- mu + epsilon
   ###
-  booty <- rbinom(s.size, 1, mu)
+  synthetic_label <- rbinom(population_size, 1, case_probability)
   
   # save(booty, file = paste0('/raid6/Tianyu/PRS/BootData/',anc,'_bootY_',setting.title,'.RData'))
-  save(booty, file = synthetic_label_file)
+  synthetic_label_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                    paste0(population_type, '_synthetic_label_'),
+                                                                    JLS_population_weight_one,
+                                                                    JLS_l1_penalty_one,
+                                                                    '.Rdata')
+  save(synthetic_label, file = synthetic_label_file)
   ##"/raid6/Tianyu/PRS/BootData/CEU_bootY_calib.RData"
   
 }
