@@ -147,6 +147,91 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
   save(synthetic_label, file = synthetic_label_file)
 }
 
+split_train_validation <- function(chr, population_type,
+                                   para_tuning_result_folder,
+                                   synthetic_population_prefix_by_chr,
+                                   GWAS_file, 
+                                   JLS_population_weight_one,
+                                   JLS_l1_penalty_one,
+                                   num_fold = 5){
+  print('-----generate train and validation sample indices-----')
+  
+  train_sample_index_r_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                         paste0(population_type, '_train_index_'),
+                                                                         JLS_population_weight_one,
+                                                                         JLS_l1_penalty_one,
+                                                                         '.Rdata')
+  validation_sample_index_r_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                              paste0(population_type, '_validation_index_'),
+                                                                              JLS_population_weight_one,
+                                                                              JLS_l1_penalty_one,
+                                                                              '.Rdata')
+  GWAS <- fread(GWAS_file, nrows = 3) ##I ONLY NEED THE SAMPLE SIZE INFORMATION
+  population_size <- as.numeric(GWAS$OBS_CT[1])
+  
+  validation_index <- sort(sample(1:population_size, floor(population_size/num_fold)))
+  train_index <- (1:population_size)[-validation_index]
+  
+  save(train_index, file = train_sample_index_r_file)
+  save(validation_index, file = validation_sample_index_r_file)
+  print('-----finished-----')
+  
+  ####
+  print('-----split the plink file-----')
+  train_sample_index_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                       paste0(population_type, '_train_index_'),
+                                                                       JLS_population_weight_one,
+                                                                       JLS_l1_penalty_one,
+                                                                       '.txt')
+  validation_sample_index_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                            paste0(population_type, '_validation_index_'),
+                                                                            JLS_population_weight_one,
+                                                                            JLS_l1_penalty_one,
+                                                                            '.txt')
+  synthetic_population_fam <- fread(paste0(synthetic_population_prefix, ".fam"))
+  train_fam <- synthetic_population_fam[train_index, c(1,2)] #only keep family id and withtin family id
+  fwrite(train_fam, train_sample_index_file, col.names = F, sep = " ")
+  val_fam <- synthetic_population_fam[validation_index, c(1,2)]
+  fwrite(val_fam, validation_sample_index_file, col.names = F, sep = " ")
+  
+  train_genotype_folder_by_chr <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                            paste0(population_type, '_train_CHR_'),
+                                                                            JLS_population_weight_one,
+                                                                            JLS_l1_penalty_one,
+                                                                            '/')
+  dir.create(train_genotype_folder_by_chr, showWarnings = F,recursive = T)
+  
+  train_genotype_prefix <- paste0(train_genotype_folder_by_chr, "chr_", chr)
+  
+  plink.command <- paste("plink --bfile", paste0(synthetic_population_prefix_by_chr, chr),
+                         "--allow-no-sex",
+                         "--keep", train_sample_index_file,
+                         "--make-bed", "--out", train_genotype_prefix,
+                         "--noweb", "--keep-allele-order",
+                         sep = " ")
+  system(plink.command)
+  
+  validation_genotype_folder_by_chr <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                                 paste0(population_type, '_validation_CHR_'),
+                                                                                 JLS_population_weight_one,
+                                                                                 JLS_l1_penalty_one,
+                                                                                 '/')
+  dir.create(validation_genotype_folder_by_chr, showWarnings = F,recursive = T)
+  
+  validation_genotype_prefix <- paste0(validation_genotype_folder_by_chr, "chr_", chr)
+  
+  plink.command <- paste("plink --bfile", paste0(synthetic_population_prefix_by_chr, chr),
+                         "--allow-no-sex",
+                         "--keep", validation_sample_index_file,
+                         "--make-bed", "--out", validation_genotype_prefix,
+                         "--noweb", "--keep-allele-order",
+                         sep = " ")
+  system(plink.command)
+  
+  print(paste0('finished sample splitting for chr ', chr))
+  print('-----done-----')
+}
+
 splitTrainValidation <- function(chr = NULL, anc, train.index, val.index, 
                             ParameterTuningDirectory, 
                             TrainSampleIndexFile,
