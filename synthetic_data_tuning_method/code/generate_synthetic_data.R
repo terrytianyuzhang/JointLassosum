@@ -20,10 +20,12 @@ JLS_l1_penalty_one <- 0.005###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
 JLS_result_folder <- '/raid6/Tianyu/PRS/sharable/result/' ###POINT THE CODE TO THE OUTPUT OF JLS FITTING RESULT. AFTER RUNNING fit_JLS.R
 large_population_type <- 'CEU'
 small_population_type <- 'YRI'
-synthetic_large_population_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr21n22' ###THE SYNTHETIC POPULATION GENOTYPE DATA
+synthetic_large_population_prefix <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr21n22' ###THE SYNTHETIC POPULATION GENOTYPE DATA, ALL CHROMOSOMES
 synthetic_small_population_prefix <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr21n22'
-synthetic_large_population_prefix_by_chr <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr' ###THE SYNTHETIC POPULATION GENOTYPE DATA
+
+synthetic_large_population_prefix_by_chr <- '/raid6/Tianyu/PRS/sharable/data/CEU-chr' ###THE SYNTHETIC POPULATION GENOTYPE DATA, SPLIT BY CHROMOSOMES
 synthetic_small_population_prefix_by_chr <- '/raid6/Tianyu/PRS/sharable/data/YRI-chr'
+
 large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_GWAS_two_chr'#GWAS RESULTS, COPY THIS FROM fit_JLS.R
 small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
 large_population_GWAS_case_proportion <- 0.5

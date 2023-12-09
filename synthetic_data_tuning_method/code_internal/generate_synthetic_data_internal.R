@@ -23,15 +23,18 @@ small_population_type <- 'YRI'
 
 synthetic_large_population_prefix <- '/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/CEU-20K/CEU-20K'
 synthetic_small_population_prefix <- '/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/YRI-4K/YRI-4K'
+synthetic_large_population_prefix_by_chr <- '/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/CEU-20K/CHR/CEU-20K-chr'
+synthetic_small_population_prefix_by_chr <- '/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/YRI-4K/CHR/YRI-4K-chr'
 
-large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
-small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
+# large_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/CEU/CHR/CEU-chr'
+# small_population_reference_prefix <- '/raid6/Tianyu/PRS/SimulationPipeline/Data/Reference-LDblocks/YRI/CHR/YRI-chr'
 
 large_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/CEU.TRN.PHENO1.glm.logistic.hybrid'
 small_population_GWAS_file <- '/raid6/Ron/prs/data/bert_sample/YRI.TRN.PHENO1.glm.logistic.hybrid'
 
 large_population_GWAS_case_proportion <- 0.5
 small_population_GWAS_case_proportion <- 0.5
+chrs <- 1:22
 
 
 
@@ -69,7 +72,29 @@ synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
                           case_proportion = large_population_GWAS_case_proportion,
                           JLS_population_weight_one = JLS_population_weight_one,
                           JLS_l1_penalty_one = JLS_l1_penalty_one)
-#
+set.seed(2019)
+# num_fold <- 5
+# chrs <- 21:22
+# population_type <- 'CEU'
+# GWAS_file <- small_population_GWAS_file
+# synthetic_population_prefix_by_chr<- synthetic_small_population_prefix_by_chr
+
+mclapply(chrs, split_train_validation, 
+         population_type = large_population_type,
+         para_tuning_result_folder = para_tuning_result_folder,
+         synthetic_population_prefix_by_chr = synthetic_large_population_prefix_by_chr,
+         GWAS_file = large_population_GWAS_file, 
+         JLS_population_weight_one = JLS_population_weight_one,
+         JLS_l1_penalty_one = JLS_l1_penalty_one,
+         mc.cores = 16, mc.preschedule = FALSE)
+mclapply(chrs, split_train_validation, 
+         population_type = small_population_type,
+         para_tuning_result_folder = para_tuning_result_folder,
+         synthetic_population_prefix_by_chr = synthetic_small_population_prefix_by_chr,
+         GWAS_file = small_population_GWAS_file, 
+         JLS_population_weight_one = JLS_population_weight_one,
+         JLS_l1_penalty_one = JLS_l1_penalty_one,
+         mc.cores = 16, mc.preschedule = FALSE)
 
 #####STEP 3: SPLIT THE TRAINING AND VALIDATION SETS WITHIN THE SYNTHETIC POPULATION
 set.seed(2019)
