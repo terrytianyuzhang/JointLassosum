@@ -188,7 +188,7 @@ split_train_validation <- function(chr, population_type,
                                                                             JLS_population_weight_one,
                                                                             JLS_l1_penalty_one,
                                                                             '.txt')
-  synthetic_population_fam <- fread(paste0(synthetic_population_prefix, ".fam"))
+  synthetic_population_fam <- fread(paste0(synthetic_population_prefix_by_chr, chr, ".fam"))
   train_fam <- synthetic_population_fam[train_index, c(1,2)] #only keep family id and withtin family id
   fwrite(train_fam, train_sample_index_file, col.names = F, sep = " ")
   val_fam <- synthetic_population_fam[validation_index, c(1,2)]

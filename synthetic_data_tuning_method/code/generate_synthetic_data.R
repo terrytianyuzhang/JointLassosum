@@ -50,6 +50,13 @@ predict_PGS_given_coefficient(JLS_result_folder = JLS_result_folder,
 
 #####STEP 2: ASSIGN LABEL PROVIDED PGS
 synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
+                          GWAS_file = large_population_GWAS_file,
+                          population_type = large_population_type,
+                          para_tuning_result_folder = para_tuning_result_folder,
+                          case_proportion = large_population_GWAS_case_proportion,
+                          JLS_population_weight_one = JLS_population_weight_one,
+                          JLS_l1_penalty_one = JLS_l1_penalty_one)
+synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
                           GWAS_file = small_population_GWAS_file,
                           population_type = small_population_type,
                           para_tuning_result_folder = para_tuning_result_folder,
@@ -57,31 +64,15 @@ synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
                           JLS_population_weight_one = JLS_population_weight_one,
                           JLS_l1_penalty_one = JLS_l1_penalty_one)
 
-synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
-                          GWAS_file = large_population_GWAS_file,
-                          population_type = large_population_type,
-                          para_tuning_result_folder = para_tuning_result_folder,
-                          case_proportion = large_population_GWAS_case_proportion,
-                          JLS_population_weight_one = JLS_population_weight_one,
-                          JLS_l1_penalty_one = JLS_l1_penalty_one)
+
 
 #####STEP 3: SPLIT THE TRAINING AND VALIDATION SETS WITHIN THE SYNTHETIC POPULATION
 set.seed(2019)
-num_fold <- 5
-chrs <- 21:22
-population_type <- 'YRI'
-GWAS_file <- small_population_GWAS_file
-synthetic_population_prefix_by_chr<- synthetic_small_population_prefix_by_chr
-
-
-mclapply(chrs, split_train_validation, 
-         population_type = small_population_type,
-         para_tuning_result_folder = para_tuning_result_folder,
-         synthetic_population_prefix_by_chr = synthetic_small_population_prefix_by_chr,
-         GWAS_file = small_population_GWAS_file, 
-         JLS_population_weight_one = JLS_population_weight_one,
-         JLS_l1_penalty_one = JLS_l1_penalty_one,
-         mc.cores = 16, mc.preschedule = FALSE)
+# num_fold <- 5
+# chrs <- 21:22
+# population_type <- 'CEU'
+# GWAS_file <- small_population_GWAS_file
+# synthetic_population_prefix_by_chr<- synthetic_small_population_prefix_by_chr
 
 mclapply(chrs, split_train_validation, 
          population_type = large_population_type,
@@ -91,6 +82,16 @@ mclapply(chrs, split_train_validation,
          JLS_population_weight_one = JLS_population_weight_one,
          JLS_l1_penalty_one = JLS_l1_penalty_one,
          mc.cores = 16, mc.preschedule = FALSE)
+mclapply(chrs, split_train_validation, 
+         population_type = small_population_type,
+         para_tuning_result_folder = para_tuning_result_folder,
+         synthetic_population_prefix_by_chr = synthetic_small_population_prefix_by_chr,
+         GWAS_file = small_population_GWAS_file, 
+         JLS_population_weight_one = JLS_population_weight_one,
+         JLS_l1_penalty_one = JLS_l1_penalty_one,
+         mc.cores = 16, mc.preschedule = FALSE)
+
+
 ######SECTION 3: split training and validation individuals####
 ###### 1/(nfold) left out for validation ####
 ##########split training and validation########
