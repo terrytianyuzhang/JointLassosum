@@ -86,7 +86,7 @@ mclapply(chrs, split_train_validation,
          GWAS_file = large_population_GWAS_file, 
          JLS_population_weight_one = JLS_population_weight_one,
          JLS_l1_penalty_one = JLS_l1_penalty_one,
-         mc.cores = 16, mc.preschedule = FALSE)
+         mc.cores = 1, mc.preschedule = FALSE)
 mclapply(chrs, split_train_validation, 
          population_type = small_population_type,
          para_tuning_result_folder = para_tuning_result_folder,
@@ -94,8 +94,24 @@ mclapply(chrs, split_train_validation,
          GWAS_file = small_population_GWAS_file, 
          JLS_population_weight_one = JLS_population_weight_one,
          JLS_l1_penalty_one = JLS_l1_penalty_one,
-         mc.cores = 16, mc.preschedule = FALSE)
+         mc.cores = 1, mc.preschedule = FALSE)
 
+calculate_synthetic_GWAS(population_type = large_population_type,
+                         para_tuning_result_folder = para_tuning_result_folder,
+                         synthetic_population_prefix_by_chr = synthetic_large_population_prefix_by_chr,
+                         GWAS_file = large_population_GWAS_file,
+                         JLS_population_weight_one = JLS_population_weight_one,
+                         JLS_l1_penalty_one = JLS_l1_penalty_one,
+                         chrs = chrs,
+                         num_chr_parallel = 1)
+calculate_synthetic_GWAS(population_type = small_population_type,
+                         para_tuning_result_folder = para_tuning_result_folder,
+                         synthetic_population_prefix_by_chr = synthetic_small_population_prefix_by_chr,
+                         GWAS_file = small_population_GWAS_file,
+                         JLS_population_weight_one = JLS_population_weight_one,
+                         JLS_l1_penalty_one = JLS_l1_penalty_one,
+                         chrs = chrs,
+                         num_chr_parallel = 1)
 #####STEP 3: SPLIT THE TRAINING AND VALIDATION SETS WITHIN THE SYNTHETIC POPULATION
 set.seed(2019)
 

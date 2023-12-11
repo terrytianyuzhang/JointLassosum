@@ -232,6 +232,78 @@ split_train_validation <- function(chr, population_type,
   print('-----done-----')
 }
 
+calculate_synthetic_GWAS <- function(population_type,
+                                     para_tuning_result_folder,
+                                     synthetic_population_prefix_by_chr,
+                                     GWAS_file, 
+                                     JLS_population_weight_one,
+                                     JLS_l1_penalty_one,
+                                     chrs,
+                                     num_chr_parallel = 1){
+  train_sample_index_r_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                         paste0(population_type, '_train_index_'),
+                                                                         JLS_population_weight_one,
+                                                                         JLS_l1_penalty_one,
+                                                                         '.Rdata')
+  train_index <- get(load(train_sample_index_r_file))
+  
+  ####TRAINING LABEL
+  synthetic_label_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                    paste0(population_type, '_synthetic_label_'),
+                                                                    JLS_population_weight_one,
+                                                                    JLS_l1_penalty_one,
+                                                                    '.Rdata')
+  synthetic_label <- get(load(synthetic_label_file))
+  synthetic_label <- synthetic_label[train_index]
+  
+  GWAS_folder <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                           paste0(population_type, '_synthetic_GWAS_'),
+                                                           JLS_population_weight_one,
+                                                           JLS_l1_penalty_one,
+                                                           '/')
+  
+  calculate_GWAS_one_chr <- function(chr){
+    ####MODIFY THE PHENO COLUMN TO BE 1&2 INSTEAD OF 0&1, NOT SURE IF NECESSARY
+    train_genotype_folder_by_chr <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                              paste0(population_type, '_train_CHR_'),
+                                                                              JLS_population_weight_one,
+                                                                              JLS_l1_penalty_one,
+                                                                              '/')
+    
+    train_genotype_prefix <- paste0(train_genotype_folder_by_chr, "chr_", chr)
+    
+    unlabeled_fam_file <- paste0(train_genotype_prefix, '.fam')
+    unlabeled_fam <- fread(unlabeled_fam_file)
+    
+    unlabeled_fam$V6 <- synthetic_label + 1
+    fwrite(unlabeled_fam, file = unlabeled_fam_file, sep = ' ', col.names = FALSE)
+    
+    
+    dir.create(GWAS_folder, showWarnings = F,recursive = T)
+    GWAS_file <- paste0(GWAS_folder, 'gwas_chr_', chr)
+    
+    plink2_command <- paste("plink2 --nonfounders","--allow-no-sex",
+                            "--bfile", train_genotype_prefix,
+                            "--glm","allow-no-covars","omit-ref",
+                            "--out", GWAS_file,
+                            sep=" ")
+    system(plink2_command)
+  }
+  
+  mclapply(chrs, calculate_GWAS_one_chr, mc.cores = num_chr_parallel, mc.preschedule = FALSE)
+  
+  all_GWAS <- data.table()
+  for(chr in chrs){
+    GWAS_file <- paste0(GWAS_folder, 'gwas_chr_', chr, '.PHENO1.glm.logistic.hybrid')
+    one_chr_GWAS <- fread(GWAS_file, header = T)
+    all_GWAS <- rbind(all_GWAS, one_chr_GWAS)
+  }
+  
+  ####
+  all_GWAS_file <- paste0(GWAS_folder, 'gwas_all.PHENO1.glm.logistic.hybrid')
+  fwrite(all_GWAS, all_GWAS_file, sep = ' ')
+}
+
 splitTrainValidation <- function(chr = NULL, anc, train.index, val.index, 
                             ParameterTuningDirectory, 
                             TrainSampleIndexFile,

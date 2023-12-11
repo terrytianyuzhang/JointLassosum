@@ -30,7 +30,7 @@ large_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/large_population_
 small_population_GWAS_file <- '/raid6/Tianyu/PRS/sharable/data/small_population_GWAS_two_chr'
 large_population_GWAS_case_proportion <- 0.5
 small_population_GWAS_case_proportion <- 0.5
-chrs <- 1:22
+chrs <- 21:22
 
 ###OUTPUT FOLDER
 para_tuning_result_folder <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/result/' ###PLACE TO STORE PARAMETER TUNING RESULTS
@@ -70,11 +70,9 @@ synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
 
 #####STEP 3: SPLIT THE TRAINING AND VALIDATION SETS WITHIN THE SYNTHETIC POPULATION
 set.seed(2019)
-# num_fold <- 5
-# chrs <- 21:22
-# population_type <- 'CEU'
-# GWAS_file <- small_population_GWAS_file
-# synthetic_population_prefix_by_chr<- synthetic_small_population_prefix_by_chr
+population_type <- 'CEU'
+GWAS_file <- large_population_GWAS_file
+synthetic_population_prefix_by_chr<- synthetic_large_population_prefix_by_chr
 
 mclapply(chrs, split_train_validation, 
          population_type = large_population_type,
@@ -83,7 +81,7 @@ mclapply(chrs, split_train_validation,
          GWAS_file = large_population_GWAS_file, 
          JLS_population_weight_one = JLS_population_weight_one,
          JLS_l1_penalty_one = JLS_l1_penalty_one,
-         mc.cores = 16, mc.preschedule = FALSE)
+         mc.cores = 4, mc.preschedule = FALSE)
 mclapply(chrs, split_train_validation, 
          population_type = small_population_type,
          para_tuning_result_folder = para_tuning_result_folder,
@@ -91,58 +89,37 @@ mclapply(chrs, split_train_validation,
          GWAS_file = small_population_GWAS_file, 
          JLS_population_weight_one = JLS_population_weight_one,
          JLS_l1_penalty_one = JLS_l1_penalty_one,
-         mc.cores = 16, mc.preschedule = FALSE)
+         mc.cores = 4, mc.preschedule = FALSE)
+
+######SECTION 4: CALCULATE GWAS WITH SYNTHETIC DATA######
 
 
-######SECTION 3: split training and validation individuals####
-###### 1/(nfold) left out for validation ####
-##########split training and validation########
+calculate_synthetic_GWAS(population_type = large_population_type,
+                         para_tuning_result_folder = para_tuning_result_folder,
+                         synthetic_population_prefix_by_chr = synthetic_large_population_prefix_by_chr,
+                         GWAS_file = large_population_GWAS_file,
+                         JLS_population_weight_one = JLS_population_weight_one,
+                         JLS_l1_penalty_one = JLS_l1_penalty_one,
+                         chrs = chrs,
+                         num_chr_parallel = 1)
+calculate_synthetic_GWAS(population_type = small_population_type,
+                         para_tuning_result_folder = para_tuning_result_folder,
+                         synthetic_population_prefix_by_chr = synthetic_small_population_prefix_by_chr,
+                         GWAS_file = small_population_GWAS_file,
+                         JLS_population_weight_one = JLS_population_weight_one,
+                         JLS_l1_penalty_one = JLS_l1_penalty_one,
+                         chrs = chrs,
+                         num_chr_parallel = 8)
 
 
-for(i.set in 1:2){
-  anc <- ancs[i.set]
-  s.size <- s.sizes[i.set]
-  
-  if(anc == 'CEU'){
-    file.title <- 'CEU-20K'
-  }else{
-    file.title <- 'YRI-4K'
-  }
-  
-  TrainSampleIndexFile <- paste0(ParameterTuningDirectory, "/", anc, "-synthetic-train-index.txt")
-  ValidationSampleIndexFile <- paste0(ParameterTuningDirectory, "/", anc, "-synthetic-validate-index.txt")
-  TrainSampleIndexRFile <- paste0(ParameterTuningDirectory, "/", anc, "-synthetic-train-index.Rdata")
-  ValidationSampleIndexRFile <- paste0(ParameterTuningDirectory, "/", anc, "-synthetic-validate-index.Rdata")
-  
-  val.index <- sort(sample(1:s.size, floor(s.size/TrainTestNFold)))
-  train.index <- (1:s.size)[-val.index] #this is in order
-  
-  save(val.index, file = ValidationSampleIndexRFile)
-  save(train.index, file = TrainSampleIndexRFile)
-  
-  ####
-  referece_panel_allSNP_name <- paste0("/raid6/Tianyu/PRS/bert_sample/ReferencePopulation-Package/", file.title,"/", file.title)
-  all_sample_psam <- fread(paste0(referece_panel_allSNP_name, ".psam"))
-  train_psam <- all_sample_psam[train.index, c(1,2)] #only keep family id and withtin family id
-  fwrite(train_psam, TrainSampleIndexFile, col.names = F, sep = " ")
-  val_psam <- all_sample_psam[val.index, c(1,2)]
-  fwrite(val_psam, ValidationSampleIndexFile, col.names = F, sep = " ")
-  
-  ####generate training and testing .fam files
-  mclapply(chrs, splitTrainValidation, anc = anc,
-          train.index = train.index, val.index = val.index,
-          ParameterTuningDirectory = ParameterTuningDirectory,
-          TrainSampleIndexFile = TrainSampleIndexFile,
-          ValidationSampleIndexFile = ValidationSampleIndexFile,
-          plink = plink, mc.cores = 16, mc.preschedule = FALSE)
-  print(paste(anc, 'is done splitting'))
-}
 
-print('finished sample splitting')
 
-######SECTION 4: calculate GWAS on synthetic data######
-chrs <- 1:22
-ancs <- c('CEU', 'YRI')
+
+
+
+
+
+
 
 ####
 
