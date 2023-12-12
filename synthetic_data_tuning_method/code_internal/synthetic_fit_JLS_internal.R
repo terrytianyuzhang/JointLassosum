@@ -33,6 +33,7 @@ synthetic_JLS_result_folder <- file_name_generator_weight_and_l1_penalty(para_tu
                                                                          synthetic_population_weight_one,
                                                                          synthetic_l1_penalty_one,
                                                                          '/')
+dir.create(synthetic_JLS_result_folder)
 print(synthetic_JLS_result_folder)
 
 
