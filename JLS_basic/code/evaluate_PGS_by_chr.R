@@ -42,15 +42,14 @@ for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
                                       sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_coefficient.txt')
   write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
   
-  for(chr in chrs){
-    ####PLACE TO STORE THE PGS RESULTS
+  calculate_PGS_one_chr <- function(chr){
     PGS_file <- paste0(JLS_result_prefix, 
                        sprintf("%.2f",JLS_population_weight_one),
                        '_l1_penalty_is_',
                        sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS_chr_',chr)
     
     ###NOW THE REAL WORK IS HAPPENING
-    plink2.command = paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
+    plink2.command = paste("plink2 --nonfounders","--allow-no-sex","--threads", 2,"--memory", 25000,
                            "--bfile", paste0(small_population_reference_prefix_by_chr, chr),
                            "--score", selected_coefficient_file, "header-read",1,2,
                            "--score-col-nums",3,
@@ -59,6 +58,12 @@ for(l1_penalty_index in 1:length(JLS_result_one_weight$lambda)){
     
     system(plink2.command)
   }
+  
+  mclapply(chrs,
+           FUN = calculate_PGS_one_chr,
+           mc.cores = 11, 
+           mc.preschedule = F, 
+           mc.silent = F)
   
   NAMED_ALLELE_DOSAGE_SUM <- ALLELE_CT <- 0 #TOTAL ALLELE
   for(chr in chrs){
