@@ -15,7 +15,7 @@ synthetic_l1_penalty_one <- 0.02236068###THIS NEED TO BE ONE OF THE CANDIDATE "L
 
 para_tuning_result_folder <- '/raid6/Tianyu/PRS/sharable_synthetic_tuning/result_internal/' ###PLACE TO STORE PARAMETER TUNING RESULTS
 population_type <- 'YRI' #or AFR
-
+chrs <- 1:22
 
 # JLS_population_weight_one <- JLS_population_weight[2]
 synthetic_JLS_result_folder <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
@@ -30,11 +30,71 @@ validation_genotype_folder_by_chr <- file_name_generator_weight_and_l1_penalty(p
                                                                                synthetic_population_weight_one,
                                                                                synthetic_l1_penalty_one,
                                                                                '/')
-genotype_plink_file <- paste0(validation_genotype_folder_by_chr, "chr_", chr)
+genotype_plink_file <- paste0(validation_genotype_folder_by_chr, "chr_")
 ###I need to construct the combined plink file
 
 AUC_result_file <- paste0(synthetic_JLS_result_folder, population_type, '_JLS_result_AUC.txt')
 
+evaluate_PGS_by_chr_parallel <- function(JLS_result_prefix,
+                                         JLS_population_weight,
+                                         JLS_l1_penalty,
+                                         genotype_plink_file, 
+                                         chrs,
+                                         num_chr_para = 11){
+  calculate_PGS_one_chr <- function(chr){
+    PGS_file <- paste0(JLS_result_prefix, 
+                       sprintf("%.2f",JLS_population_weight),
+                       '_l1_penalty_is_',
+                       sprintf("%.4f",JLS_l1_penalty), '_PGS_chr_',chr)
+    
+    ###NOW THE REAL WORK IS HAPPENING
+    plink2.command = paste("plink2 --nonfounders","--allow-no-sex","--threads", 2,"--memory", 25000,
+                           "--bfile", paste0(genotype_plink_file, chr),
+                           "--score", selected_coefficient_file, "header-read",1,2,
+                           "--score-col-nums",3,
+                           "--out", PGS_file,
+                           sep=" ")
+    
+    system(plink2.command)
+  }  
+  
+  mclapply(chrs,
+           FUN = calculate_PGS_one_chr,
+           mc.cores = num_chr_para, 
+           mc.preschedule = F, 
+           mc.silent = F)
+  
+  NAMED_ALLELE_DOSAGE_SUM <- ALLELE_CT <- 0 #TOTAL ALLELE
+  for(chr in chrs){
+    PGS_file <- paste0(JLS_result_prefix, 
+                       sprintf("%.2f",JLS_population_weight),
+                       '_l1_penalty_is_',
+                       sprintf("%.4f",JLS_l1_penalty), '_PGS_chr_',chr, '.sscore')
+    PGS <- fread(PGS_file, header = T)
+    ALLELE_CT_chr <- as.numeric(PGS[1,]$ALLELE_CT)
+    ALLELE_CT <- ALLELE_CT + ALLELE_CT_chr
+    
+    if(chr == chrs[1]){
+      individual_PGS <- ALLELE_CT_chr * PGS[,6]
+      individual_NAMED_ALLELE_DOSAGE_SUM <- PGS[,5]
+    }else{
+      individual_PGS <- individual_PGS + ALLELE_CT_chr * PGS[,6]
+      individual_NAMED_ALLELE_DOSAGE_SUM <- individual_NAMED_ALLELE_DOSAGE_SUM + PGS[,5]
+    }
+  }
+  individual_PGS <- individual_PGS/ALLELE_CT
+  
+  PGS_overall <- PGS
+  PGS_overall$ALLELE_CT <- ALLELE_CT
+  PGS_overall$NAMED_ALLELE_DOSAGE_SUM <- individual_NAMED_ALLELE_DOSAGE_SUM
+  PGS_overall[,6] <- individual_PGS
+  
+  PGS_file <- paste0(JLS_result_prefix, 
+                     sprintf("%.2f",JLS_population_weight),
+                     '_l1_penalty_is_',
+                     sprintf("%.4f",JLS_l1_penalty), '_PGS_all_chr', '.sscore')
+  fwrite(PGS_overall, file = PGS_file, sep = "\t")
+}
 
 for(JLS_population_weight_index in 1:length(JLS_population_weight)){
   JLS_population_weight_one <- JLS_population_weight[JLS_population_weight_index]
@@ -64,26 +124,30 @@ for(JLS_population_weight_index in 1:length(JLS_population_weight)){
                                         sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_coefficient.txt')
     write.table(effect_size_df, selected_coefficient_file, sep = "\t", quote = FALSE, row.names = FALSE)
     
-    ####PLACE TO STORE THE PGS RESULTS
-    PGS_file <- paste0(JLS_result_prefix, 
-                       sprintf("%.2f",JLS_population_weight_one),
-                       '_l1_penalty_is_',
-                       sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS')
     
-    ###NOW THE REAL WORK IS HAPPENING
-    plink2.command = paste("plink2 --nonfounders","--allow-no-sex","--threads", 8,"--memory", 25000,
-                           "--bfile", genotype_plink_file ,
-                           "--score", selected_coefficient_file, "header-read",1,2,
-                           "--score-col-nums",3,
-                           "--out",PGS_file,
-                           sep=" ")
-    
-    system(plink2.command)
+    evaluate_PGS_by_chr_parallel(JLS_result_prefix = JLS_result_prefix,
+                                 JLS_population_weight = JLS_population_weight_one,
+                                 JLS_l1_penalty = JLS_result_one_weight$lambda[l1_penalty_index],
+                                 genotype_plink_file = genotype_plink_file,
+                                 chrs = chrs)
   }
 }
 
 ###NOW CALCULATE AUC RESULTS FOR THE TESTING SAMPLE FOR EACH HYPERPARAMETER
 JLS_AUC <- data.frame()
+synthetic_label_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                  paste0(population_type, '_synthetic_label_'),
+                                                                  synthetic_population_weight_one,
+                                                                  synthetic_l1_penalty_one,
+                                                                  '.Rdata')
+synthetic_label <- get(load(synthetic_label_file))
+validation_sample_index_r_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
+                                                                            paste0(population_type, '_validation_index_'),
+                                                                            synthetic_population_weight_one,
+                                                                            synthetic_l1_penalty_one,
+                                                                            '.Rdata')
+validation_sample_index <- get(load(validation_sample_index_r_file))
+validation_synthetic_label <- synthetic_label[validation_sample_index]
 for(JLS_population_weight_index in 1:length(JLS_population_weight)){
   JLS_population_weight_one <- JLS_population_weight[JLS_population_weight_index]
   
@@ -98,9 +162,12 @@ for(JLS_population_weight_index in 1:length(JLS_population_weight)){
     PGS_file <- paste0(JLS_result_prefix, 
                        sprintf("%.2f",JLS_population_weight_one),
                        '_l1_penalty_is_',
-                       sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS.sscore')
+                       sprintf("%.4f",JLS_result_one_weight$lambda[l1_penalty_index]), '_PGS_all_chr.sscore')
     PGS <- data.frame(fread(PGS_file))
-    current_AUC <- auc(PGS$PHENO1, PGS[,ncol(PGS)])
+    
+    
+    
+    current_AUC <- auc(validation_synthetic_label, PGS[,ncol(PGS)])
     JLS_AUC <- rbind(JLS_AUC,
                      data.frame(JLS_population_weight = JLS_population_weight_one,
                                 JLS_l1_penalty = JLS_result_one_weight$lambda[l1_penalty_index],

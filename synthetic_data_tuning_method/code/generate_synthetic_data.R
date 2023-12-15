@@ -72,7 +72,7 @@ synthetic_label_given_PGS(JLS_result_folder = JLS_result_folder,
 set.seed(2019)
 population_type <- 'CEU'
 GWAS_file <- large_population_GWAS_file
-synthetic_population_prefix_by_chr<- synthetic_large_population_prefix_by_chr
+synthetic_population_prefix_by_chr <- synthetic_large_population_prefix_by_chr
 
 mclapply(chrs, split_train_validation, 
          population_type = large_population_type,
