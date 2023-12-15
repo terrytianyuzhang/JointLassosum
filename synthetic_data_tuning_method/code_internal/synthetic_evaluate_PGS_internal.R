@@ -8,7 +8,7 @@ library(doParallel) # foreach
 library(R.utils)
 library(pROC) # for AUC
 # library(pryr) # check memory useage
-
+source("/raid6/Tianyu/PRS/sharable_synthetic_tuning/code/generate_synthetic_data_function.R")
 JLS_population_weight <- c(0.2, 0.5, 0.8)
 synthetic_population_weight_one <- 0.5 ###THIS NEED TO BE ONE OF THE CANDIDATE "GAMMA"
 synthetic_l1_penalty_one <- 0.02236068###THIS NEED TO BE ONE OF THE CANDIDATE "LAMBDA"
@@ -27,10 +27,11 @@ JLS_result_prefix <- paste0(synthetic_JLS_result_folder, 'synthetic_JLS_result_w
 
 validation_genotype_folder_by_chr <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
                                                                                paste0(population_type, '_validation_CHR_'),
-                                                                               JLS_population_weight_one,
-                                                                               JLS_l1_penalty_one,
+                                                                               synthetic_population_weight_one,
+                                                                               synthetic_l1_penalty_one,
                                                                                '/')
 genotype_plink_file <- paste0(validation_genotype_folder_by_chr, "chr_", chr)
+###I need to construct the combined plink file
 
 AUC_result_file <- paste0(synthetic_JLS_result_folder, population_type, '_JLS_result_AUC.txt')
 
