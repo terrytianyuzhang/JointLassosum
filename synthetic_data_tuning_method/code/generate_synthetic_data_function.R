@@ -80,7 +80,7 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
                                       case_proportion,   ###case_proportion > 0.5 means there is more case than control 
                                       JLS_population_weight_one,
                                       JLS_l1_penalty_one, extra_scaling = 1,
-                                      model_based_formula = FALSE){
+                                      model_based_formula = TRUE){
   
   print('-----load the risk score information generated last step-----')
   PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
@@ -130,7 +130,7 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
   
   
   #make sure mu is between 0 and 1 since it is a probability
-  # print(paste0('number of beyond 0/1 range', sum(case_probability > 1 | case_probability<0)))
+  print(paste0('number of beyond 0/1 range', sum(case_probability > 1 | case_probability<0)))
   case_probability[case_probability > 1] <- 1
   case_probability[case_probability < 0] <- 0
   
