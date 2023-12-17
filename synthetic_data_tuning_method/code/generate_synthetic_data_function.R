@@ -75,12 +75,13 @@ predict_PGS_given_coefficient <- function(JLS_result_folder, para_tuning_result_
 # population_type = small_population_type
 # case_proportion = small_population_GWAS_case_proportion
 # model_based_formula = FALSE
+
 synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
                                       population_type, para_tuning_result_folder,
                                       case_proportion,   ###case_proportion > 0.5 means there is more case than control 
                                       JLS_population_weight_one,
-                                      JLS_l1_penalty_one, extra_scaling = 1,
-                                      model_based_formula = TRUE){
+                                      JLS_l1_penalty_one, extra_scaling = 3,
+                                      model_based_formula = FALSE){
   
   print('-----load the risk score information generated last step-----')
   PGS_file <- file_name_generator_weight_and_l1_penalty(para_tuning_result_folder, 
@@ -90,7 +91,7 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
                                                         '.sscore')
   ###READ IN THE PREDICTED PGS SCORE FOR EACH INDIVIDUAL IN THE SYNTHETIC POPULATION
   PGS_complete <- fread(PGS_file, header = T)
-  risk_score <- as.matrix(PGS_complete[, 6])
+  risk_score <- as.matrix(PGS_complete[, 6]) * as.numeric(PGS_complete$ALLELE_CT[1])
   risk_score <- risk_score - mean(risk_score)
   
   print('-----done-----')
@@ -101,8 +102,9 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
   
   if(model_based_formula == TRUE){
     ###model-based formula, derivation included in the paper
-    
+    print('-----load the GWAS file-----')
     GWAS <- fread(GWAS_file) 
+    print('-----finished-----')
     
     print('-----load the preliminary regression coefficients-----')
     ###READ IN THE PRELIMINARY BETA
@@ -112,7 +114,7 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
                                          '.Rdata')
     JLS_result_one_weight <- get(load(JLS_result_one_weight_file))
     
-    l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-15))
+    l1_penalty_index <- which(abs(JLS_result_one_weight$lambda - JLS_l1_penalty_one) < 10^(-5))[1]
     beta_preliminary <- as.matrix(JLS_result_one_weight$beta[, l1_penalty_index])
     print('-----done-----')
     
@@ -125,7 +127,7 @@ synthetic_label_given_PGS <- function(JLS_result_folder, GWAS_file,
     case_probability <-  slope * risk_score + case_proportion
   }else{
     risk_score <- risk_score/ max(max(risk_score), -min(risk_score))
-    case_probability <-  min(case_proportion, 1-case_proportion) * risk_score + case_proportion
+    case_probability <-  min(case_proportion, 1-case_proportion) * risk_score * extra_scaling + case_proportion
   }
   
   
