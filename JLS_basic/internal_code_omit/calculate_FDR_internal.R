@@ -3,7 +3,6 @@ library(ggplot2)
 library(ggpubr)
 
 
-# plot_list <- list()
 fairness_data <- data.frame()
 setting_index <- 1
 
@@ -70,3 +69,5 @@ one_method_one_repeat_PGS_to_FDR_at_2 <- function(raw_PRS_onesimulation, FDR_thr
 look_at_the_FDR_column <- one_method_one_repeat_PGS_to_FDR_at_2(raw_PRS_onesimulation, FDR_threshold = 2)
 
 #THEN YOU CAN LOOP OVER ALL THE REPEATS FOR ONE METHOD AND STACK THOSE look_at_the_FDR_column TOGETHER
+
+
